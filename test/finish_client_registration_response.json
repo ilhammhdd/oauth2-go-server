@@ -1,0 +1,26 @@
+{
+  "client_id": "48a51453-032b-4fe9-b0aa-5fb57e0058e5",
+  "client_id_issued_at": "2022-09-20T09:51:46.3973141Z",
+  "client_secret_expired_at": "2022-10-20T09:51:46.3978691Z",
+  "redirect_uris": [
+    "https://clienttestfirst.com/redirect"
+  ],
+  "token_endpoint_auth_method": "client_secret_bearer",
+  "grant_types": [
+    "authorization_code"
+  ],
+  "response_types": [
+    "code"
+  ],
+  "client_name": "Client Test 1st",
+  "client_uri": "https://clienttestfirst.com/landing",
+  "logo_uri": "https://clienttestfirst.com/logo.jpg",
+  "scope": "email name",
+  "contacts": [
+    "dev@clienttestfirst.com"
+  ],
+  "tos_uri": "https://clienttestfirst.com/tos",
+  "policy_uri": "https://clienttestfirst.com/policy",
+  "software_id": "oin7Hgq123aA",
+  "software_version": "v1.0.1"
+}

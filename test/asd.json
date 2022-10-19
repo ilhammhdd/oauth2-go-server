@@ -1,0 +1,38 @@
+{
+  "Accept": [
+    "*/*"
+  ],
+  "Accept-Encoding": [
+    "gzip, deflate, br"
+  ],
+  "Accept-Language": [
+    "en-GB,en;q=0.9,id-ID;q=0.8,id;q=0.7,en-US;q=0.6"
+  ],
+  "Access-Control-Request-Headers": [
+    "authorization,x-gibberish"
+  ],
+  "Access-Control-Request-Method": [
+    "GET"
+  ],
+  "Connection": [
+    "keep-alive"
+  ],
+  "Origin": [
+    "http://localhost:7575"
+  ],
+  "Referer": [
+    "http://localhost:7575/"
+  ],
+  "Sec-Fetch-Dest": [
+    "empty"
+  ],
+  "Sec-Fetch-Mode": [
+    "cors"
+  ],
+  "Sec-Fetch-Site": [
+    "same-site"
+  ],
+  "User-Agent": [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36"
+  ]
+}

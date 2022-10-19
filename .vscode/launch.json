@@ -1,0 +1,38 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch file",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}\\main.go",
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "DB_SOURCE_NAME",
+        "tcp(0.0.0.0:4512)",
+        "DB_USER",
+        "client",
+        "DB_PASSWORD",
+        "passwordformariadb",
+        "DB_NAME",
+        "oauth2_go",
+        "PLAIN_KEY_PAIR_SEED",
+        "secretkeypairseed",
+        "PLAIN_SECRET_SALT",
+        "secretsalt",
+        "HTTP_PORT",
+        "6464",
+        "OVER_TLS",
+        "false",
+        "CLIENT_REGISTRATION_SESSION_EXPIRATION_SECONDS",
+        "30000",
+        "CSRF_TOKEN_PLAIN_KEY",
+        "for_csrf_token_hmac_key"
+      ],
+    }
+  ]
+}

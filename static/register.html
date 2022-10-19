@@ -1,0 +1,36 @@
+{{define "register_tmpl"}}
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta id="csrf-token" name="csrf-token" content="{{.CsrfToken}}" />
+  <title>Register new user</title>
+</head>
+
+<body>
+  <div class="register-form">
+    <label>Email address:</label>
+    <input required="true" id="email_address" type="email" name="email_address" />
+  </div>
+  <div class="register-form">
+    <label>Username:</label>
+    <input required="true" id="username" type="text" name="username" />
+  </div>
+  <div class="register-form">
+    <label>Password:</label>
+    <input required="true" id="password" type="password" name="password" />
+  </div>
+  <div class="register-form">
+    <label>Confirm password:</label>
+    <input required="true" id="confirm_password" type="password" name="confirm_password" />
+  </div>
+  <button id="submit-btn">Submit</button>
+</body>
+
+<script src="register.js"></script>
+
+</html>
+{{end}}

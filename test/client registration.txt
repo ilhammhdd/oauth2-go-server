@@ -1,0 +1,6 @@
+uuid: 9a636a9c-6cad-4a77-b94a-3f74cda84ef6, base64 uuidBlake2b256: fvF2XA338cHteO2nXie5goYI3uNpXGMXsZmm_bS2aTI
+uuid: 65ed79f2-1ead-401d-8d17-204fa856340e, base64 uuidBlake2b256: 7m9BNe21ulSBIEkiLIoFONle167mJ3FW_CwK71B1Vzo
+
+clientPk: LIfcJ3e1ThA4kyp0q9M11poD8LLmUGk9c7N8I0i0BDc
+sharedClientSecret: qGMS1XRmfLQZDBuWTRDvhvw3umtEVrcAzAIcvvQjj0k
+clientSecretAtDB:   qGMS1XRmfLQZDBuWTRDvhvw3umtEVrcAzAIcvvQjj0k
