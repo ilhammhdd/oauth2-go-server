@@ -4,11 +4,18 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ilhammhdd/go-toolkit/errorkit"
 	"ilhammhdd.com/oauth2-go-server/entity"
 )
 
+var DetailedErrDescGen = errorkit.ErrDescGeneratorFunc(GenerateDetailedErrDesc)
+
 func GenerateDetailedErrDesc(errDescConst uint, args ...string) string {
 	switch errDescConst {
+	case errorkit.FlowErrHttpHeaderParamNotExists:
+		return "there are no http header parameters found"
+	case errorkit.FlowErrURLQueryNotExists:
+		return "there are no URL query parameters found"
 	case entity.ErrGenerateCryptoRand:
 		if len(args) == 1 {
 			return fmt.Sprintf("error generating crypto random for %s", args[0])

@@ -26,7 +26,7 @@
         "secretsalt",
         "HTTP_PORT",
         "6464",
-        "OVER_TLS",
+        "HTTPS",
         "false",
         "CLIENT_REGISTRATION_SESSION_EXPIRATION_SECONDS",
         "30000",

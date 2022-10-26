@@ -29,11 +29,11 @@ func (icr InitClientRegistration) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	rules["register_type"] = adapter.RegexClientRegisterType
 	rules["init_client_id_checksum"] = regexkit.RegexNotEmpty
 
-	upv := &restkit.URLParamValidation{RegexRules: rules, Values: r.URL.Query()}
+	upv := &restkit.URLQueryValidation{RegexRules: rules, Values: r.URL.Query()}
 
 	w.Header().Set("Content-Type", "application/json")
 
-	if regexErrMsgs, valid := upv.Validate(errorkit.ErrDescGeneratorFunc(adapter.GenerateRegexErrDesc)); !valid && regexErrMsgs != nil {
+	if regexErrMsgs, valid := upv.Validate(adapter.DetailedErrDescGen, adapter.RegexErrDescGen); !valid && regexErrMsgs != nil {
 		response, err := json.Marshal(entity.ResponseBodyTemplate{RegexNoMatchMsgs: regexErrMsgs})
 		if err != nil {
 			errorkit.IsNotNilThenLog(errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrJsonMarshal, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "response body template"))
@@ -68,31 +68,27 @@ func (icr InitClientRegistration) InsertIgnoreDBO(cr *entity.ClientRegistration)
 func (icr InitClientRegistration) SelectCountBy(initClientIdChecksum string) (int, *errorkit.DetailedError) {
 	var callTraceFunc = fmt.Sprintf("%s#InitClientRegistration.SelectCountBy", callTraceFileInitRegisterClientController)
 	row, err := icr.dbo.QueryRow("SELECT COUNT(id) FROM client_registrations WHERE init_client_id_checksum = ?", initClientIdChecksum)
-	if err != nil && err != sql.ErrNoRows {
-		return -1, errorkit.NewDetailedError(true, callTraceFunc, err, entity.FlowErrNotFoundBy, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "client_registrations", "COUNT(client_registrations.id)")
-	} else if err != nil {
-		return -1, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBSelect, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "client_registrations")
+	if detailedErr := handleSelectTableErr(err, callTraceFunc, "COUNT(client_registrations.id)", "init_client_id_checksum"); detailedErr != nil {
+		return -1, detailedErr
 	}
 
 	var counted int = -1
-	err = row.Scan(&counted)
-	if err != nil {
-		return -1, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBScan, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "COUNT(client_registrations.id)", "counted")
+	if err := row.Scan(&counted); err != nil && err != sql.ErrNoRows {
+		return -1, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBScan, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "COUNT(id)", "counted")
 	}
 	return counted, nil
 }
 
 func (icr InitClientRegistration) SelectCountClientsBy(initClientIDChecksum string) (int, *errorkit.DetailedError) {
 	var callTraceFunc = fmt.Sprintf("%s#InitClientRegistration.SelectCountClientsBy", callTraceFileInitRegisterClientController)
+
 	row, err := icr.dbo.QueryRow("SELECT COUNT(id) FROM clients WHERE init_client_id_checksum = ?", initClientIDChecksum)
-	if err != nil && err != sql.ErrNoRows {
-		return -1, errorkit.NewDetailedError(true, callTraceFunc, err, entity.FlowErrNotFoundBy, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "COUNT(clients.id)", "init_client_id_checksum")
-	} else if err != nil {
-		return -1, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBSelect, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "clients")
+	if detailedErr := handleSelectTableErr(err, callTraceFunc, "COUNT(clients.id)", "init_client_id_checksum"); detailedErr != nil {
+		return -1, detailedErr
 	}
 
 	var counted int
-	if err := row.Scan(&counted); err != nil {
+	if err := row.Scan(&counted); err != nil && err != sql.ErrNoRows {
 		return -1, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBScan, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "count(clients.id)", "counted")
 	}
 	return counted, nil

@@ -24,26 +24,26 @@ type RegisterUser struct {
 func (ru RegisterUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var callTraceFunc = fmt.Sprintf("%s#RegisterUser.ServeHTTP", callTraceFileRegisterUserController)
 
-	upv := restkit.URLParamValidation{RegexRules: map[string]uint{"client_id": regexkit.RegexUUIDV4}, Values: r.URL.Query()}
+	upv := restkit.URLQueryValidation{RegexRules: map[string]uint{"client_id": regexkit.RegexUUIDV4}, Values: r.URL.Query()}
 
-	regexErrMsgs, ok := upv.Validate(adapter.RegexErrDescGen)
+	regexErrMsgs, ok := upv.Validate(adapter.DetailedErrDescGen, adapter.RegexErrDescGen)
 	if !ok {
 		w.WriteHeader(http.StatusBadRequest)
-		ru.htmlTemplateExecutor.ExecuteTemplate("error_tmpl", "static/error.html", entity.ResponseBodyTemplate{FlattenRegexNoMatchMsgs: adapter.FlattenErrMessages(regexErrMsgs)}, w)
+		w.Write(adapter.MakeResponseTmplErrResponse(regexErrMsgs, "", nil))
 		return
 	}
 
-	registerUserRequest, detailedErr := adapter.ReadRequesBody[entity.RegisterUserRequest](r, "register user")
+	registerUserRequest, detailedErr := adapter.ReadRequestBody[entity.RegisterUserRequest](r, "register user")
 	if errorkit.IsNotNilThenLog(detailedErr) {
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
 		w.WriteHeader(http.StatusInternalServerError)
-		ru.htmlTemplateExecutor.ExecuteTemplate("error_tmpl", "static/error.html", entity.ResponseBodyTemplate{Errs: []error{detailedErr}}, w)
 		return
 	}
 
 	regexErrMsgs = ru.validateRequest(r, registerUserRequest)
 	if len(*regexErrMsgs) > 0 {
+		w.Write(adapter.MakeResponseTmplErrResponse(regexErrMsgs, "", nil))
 		w.WriteHeader(http.StatusBadRequest)
-		ru.htmlTemplateExecutor.ExecuteTemplate("error_tmpl", "static/error.html", entity.ResponseBodyTemplate{FlattenRegexNoMatchMsgs: adapter.FlattenErrMessages(regexErrMsgs)}, w)
 		return
 	}
 
@@ -52,10 +52,10 @@ func (ru RegisterUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Header:     r.Header,
 	}
 
-	regexErrMsgs, ok = hpv.Validate(adapter.RegexErrDescGen)
+	regexErrMsgs, ok = hpv.Validate(adapter.DetailedErrDescGen, adapter.RegexErrDescGen)
 	if !ok {
+		w.Write(adapter.MakeResponseTmplErrResponse(regexErrMsgs, "", nil))
 		w.WriteHeader(http.StatusBadRequest)
-		ru.htmlTemplateExecutor.ExecuteTemplate("error_tmpl", "static/error.html", entity.ResponseBodyTemplate{FlattenRegexNoMatchMsgs: adapter.FlattenErrMessages(regexErrMsgs)}, w)
 		return
 	}
 
@@ -65,18 +65,18 @@ func (ru RegisterUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	csrfTokenHmac, err := r.Cookie(cookieKey)
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
-		ru.htmlTemplateExecutor.ExecuteTemplate("error_tmpl", "static/error.html", entity.ResponseBodyTemplate{Errs: []error{errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrRetrieveCookie, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), cookieKey)}}, w)
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrRetrieveCookie, adapter.DetailedErrDescGen, "csrf-token-hmac")}))
 		return
 	}
 
 	detailedErr = registerUserUsecase.VerifyCsrfTokenHmac(r.Header.Get("Csrf-Token"), csrfTokenHmac.Value)
 	if errorkit.IsNotNilThenLog(detailedErr) {
 		if detailedErr.Flow {
-			w.WriteHeader(http.StatusInternalServerError)
-		} else {
 			w.WriteHeader(http.StatusBadRequest)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
 		}
-		ru.htmlTemplateExecutor.ExecuteTemplate("error_tmpl", "static/error.html", entity.ResponseBodyTemplate{Errs: []error{detailedErr}}, w)
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
 		return
 	}
 
@@ -85,13 +85,14 @@ func (ru RegisterUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if detailedErr.Flow {
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
-			w.WriteHeader(http.StatusBadRequest)
+			w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
 		}
-		ru.htmlTemplateExecutor.ExecuteTemplate("error_tmpl", "static/error.html", entity.ResponseBodyTemplate{Errs: []error{detailedErr}}, w)
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("success"))
 }
 
 func (ru RegisterUser) validateRequest(r *http.Request, registerUserRequest *entity.RegisterUserRequest) *map[string][]string {
@@ -147,12 +148,12 @@ func (ru RegisterUser) SelectClientsIDBy(clientID string) (uint64, *errorkit.Det
 	var callTraceFunc = fmt.Sprintf("%s#RegisterUser.SelectClientsIDBy", callTraceFileRegisterUserController)
 
 	row, err := ru.dbo.QueryRow("SELECT id FROM clients WHERE client_id = ?", clientID)
-	if detailedErr := handleSelectDBNoRowsErr(err, callTraceFunc, "clients.id", "client_id"); detailedErr != nil {
+	if detailedErr := handleSelectTableErr(err, callTraceFunc, "clients", "client_id"); detailedErr != nil {
 		return 0, detailedErr
 	}
 
 	var clientsID uint64
-	if scanErr := row.Scan(&clientsID); scanErr != nil {
+	if scanErr := row.Scan(&clientsID); scanErr != nil && scanErr != sql.ErrNoRows {
 		return 0, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBScan, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc))
 	}
 
@@ -163,12 +164,12 @@ func (ru RegisterUser) SelectCountUserBy(email, username string) (uint, *errorki
 	var callTraceFunc = fmt.Sprintf("%s#RegisterUser.SelectCountUserBy", callTraceFileRegisterUserController)
 
 	row, err := ru.dbo.QueryRow("SELECT COUNT(u.id) FROM users u JOIN usernames un ON un.users_id = u.id WHERE u.email = ? AND un.username= ?", email, username)
-	if detailedErr := handleSelectDBNoRowsErr(err, callTraceFunc, "COUNT(users.id)", "email", "username"); detailedErr != nil {
+	if detailedErr := handleSelectTableErr(err, callTraceFunc, "COUNT(users.id)", "users.email", "username.username"); detailedErr != nil {
 		return 0, detailedErr
 	}
 
 	var countedUsers uint
-	if scanErr := row.Scan(&countedUsers); scanErr != nil {
+	if scanErr := row.Scan(&countedUsers); scanErr != nil && scanErr != sql.ErrNoRows {
 		return 0, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBScan, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "COUNT(users.id)", "countedUsers")
 	}
 
@@ -179,12 +180,12 @@ func (ru RegisterUser) SelectUsernameUnqNumBy(username string) (uint16, *errorki
 	var callTraceFunc = fmt.Sprintf("%s#RegisterUser.SelectUsernameUnqNumBy", callTraceFileRegisterUserController)
 
 	row, err := ru.dbo.QueryRow("SELECT unq_num FROM usernames WHERE username = ?", username)
-	if detailedErr := handleSelectDBNoRowsErr(err, callTraceFunc, "usernames.unq_num", "username"); detailedErr != nil {
+	if detailedErr := handleSelectTableErr(err, callTraceFunc, "usernames", "username"); detailedErr != nil {
 		return 0, detailedErr
 	}
 
 	var unqNum uint16
-	if scanErr := row.Scan(&unqNum); scanErr != nil {
+	if scanErr := row.Scan(&unqNum); scanErr != nil && scanErr != sql.ErrNoRows {
 		return 0, errorkit.NewDetailedError(false, callTraceFunc, scanErr, entity.ErrDBScan, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "usernames.unq_num", "unqNum")
 	}
 

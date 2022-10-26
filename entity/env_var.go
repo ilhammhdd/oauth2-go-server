@@ -7,8 +7,8 @@ const (
 	DBUserEnvVar                                     = "DB_USER"
 	DBPasswordEnvVar                                 = "DB_PASSWORD"
 	DBNameEnvVar                                     = "DB_NAME"
-	HttpPortEnvVar                                   = "HTTP_PORT"
-	OverTLS                                          = "OVER_TLS"
+	HTTPPortEnvVar                                   = "HTTP_PORT"
+	HTTPSEnvVar                                      = "HTTPS"
 	ClientRegistrationSessionExpirationSecondsEnvVar = "CLIENT_REGISTRATION_SESSION_EXPIRATION_SECONDS"
 	CsrfTokenPlainKeyEnvVar                          = "CSRF_TOKEN_PLAIN_KEY"
 )
@@ -20,8 +20,8 @@ var EnvVarKeys []string = []string{
 	DBNameEnvVar,
 	PlainKeyPairSeedEnvVar,
 	PlainSecretSaltEnvVar,
-	HttpPortEnvVar,
-	OverTLS,
+	HTTPPortEnvVar,
+	HTTPSEnvVar,
 	ClientRegistrationSessionExpirationSecondsEnvVar,
 	CsrfTokenPlainKeyEnvVar,
 }

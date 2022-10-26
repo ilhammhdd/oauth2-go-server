@@ -15,11 +15,11 @@ type DBOperator interface {
 	QueryRowsToMap(stmt string, args ...interface{}) (*[]*map[string]interface{}, error)
 }
 
-func handleSelectDBNoRowsErr(err error, callTraceFunc string, args ...string) *errorkit.DetailedError {
-	if err != nil && err != sql.ErrNoRows {
-		return errorkit.NewDetailedError(true, callTraceFunc, err, entity.FlowErrNotFoundBy, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), args...)
+func handleSelectTableErr(err error, callTraceFunc string, errArgs ...string) *errorkit.DetailedError {
+	if err != nil && err == sql.ErrNoRows {
+		return errorkit.NewDetailedError(true, callTraceFunc, err, entity.FlowErrNotFoundBy, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), errArgs...)
 	} else if err != nil {
-		return errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBSelect, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), args...)
+		return errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBSelect, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), errArgs...)
 	} else {
 		return nil
 	}

@@ -81,7 +81,7 @@ func (fcr *FinishClientRegistration) validateRequest(r *http.Request) (fcrr *ent
 	headerRules["Accept"] = adapter.RegexAppliationJson
 	hpv := restkit.HeaderParamValidation{RegexRules: headerRules, Header: r.Header}
 
-	if regexErrMsgs, ok := hpv.Validate(errorkit.ErrDescGeneratorFunc(adapter.GenerateRegexErrDesc)); !ok {
+	if regexErrMsgs, ok := hpv.Validate(adapter.DetailedErrDescGen, adapter.RegexErrDescGen); !ok {
 		return nil, *regexErrMsgs
 	}
 
@@ -205,14 +205,12 @@ func (fcr *FinishClientRegistration) SelectClientRegistrationBy(initClientIdChec
 	var callTraceFunc = fmt.Sprintf("%s#*FinishClientRegistration.SelectClientRegistrationBy", callTraceFileFinishRegisterClientController)
 
 	row, err := fcr.dbo.QueryRow("SELECT * FROM client_registrations WHERE init_client_id_checksum = ?", initClientIdChecksum)
-	if err != nil && err == sql.ErrNoRows {
-		return nil, errorkit.NewDetailedError(true, callTraceFunc, err, entity.FlowErrNotFoundBy, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "client_registrations", "init_client_id_checksum")
-	} else if err != nil {
-		return nil, errorkit.NewDetailedError(true, callTraceFunc, err, entity.ErrDBSelect, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "client_registrations")
+	if detailedErr := handleSelectTableErr(err, callTraceFunc, "client_registrations", "init_client_id_checksum"); detailedErr != nil {
+		return nil, detailedErr
 	}
 
 	var celientRegistration entity.ClientRegistration
-	if err := row.Scan(&celientRegistration.ID, &celientRegistration.CreatedAt, &celientRegistration.UpdatedAt, &celientRegistration.SoftDeletedAt, &celientRegistration.InitClientIDChecksum, &celientRegistration.Basepoint, &celientRegistration.ServerSK, &celientRegistration.ServerPK, &celientRegistration.SessionExpiredAt); err != nil {
+	if err := row.Scan(&celientRegistration.ID, &celientRegistration.CreatedAt, &celientRegistration.UpdatedAt, &celientRegistration.SoftDeletedAt, &celientRegistration.InitClientIDChecksum, &celientRegistration.Basepoint, &celientRegistration.ServerSK, &celientRegistration.ServerPK, &celientRegistration.SessionExpiredAt); err != nil && err != sql.ErrNoRows {
 		return nil, errorkit.NewDetailedError(true, callTraceFunc, err, entity.ErrDBScan, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "client_registrations", "celientRegistration")
 	}
 	return &celientRegistration, nil

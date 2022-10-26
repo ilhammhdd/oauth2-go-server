@@ -13,7 +13,7 @@ const callTraceFileFinishRegisterClient = "/adapter/finish_register_client_adapt
 func MakeFinishClientRegistrationResponseBody(regexNoMatchMsgs *map[string][]string, message string, errors []error, result *entity.FinishClientRegistrationResult, shared *entity.FinishClientRegistrationShared) []byte {
 	var callTraceFunc = fmt.Sprintf("%s#MakeFinishClientRegistrationResponse", callTraceFileFinishRegisterClient)
 
-	fcrr := entity.FinishClientRegistrationResponse{FinishClientRegistrationShared: shared, ResponseBodyTemplate: entity.ResponseBodyTemplate{RegexNoMatchMsgs: regexNoMatchMsgs, Message: message, Errs: errors}, FinishClientRegistrationResult: result}
+	fcrr := entity.FinishClientRegistrationResponse{FinishClientRegistrationShared: shared, ResponseBodyTemplate: entity.ResponseBodyTemplate{RegexNoMatchMsgs: regexNoMatchMsgs, Message: &message, Errs: errors}, FinishClientRegistrationResult: result}
 	if result != nil {
 		fcrr.FinishClientRegistrationResult = result
 	}

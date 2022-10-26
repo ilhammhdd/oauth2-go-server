@@ -1,7 +1,9 @@
 package entity
 
+import "github.com/ilhammhdd/go-toolkit/errorkit"
+
 const (
-	NoErr uint = iota
+	NoErr uint = iota + errorkit.DetailedErrLastIota
 	ErrGenerateCryptoRand
 	ErrParseToInt
 	ErrX25519Mul

@@ -12,7 +12,7 @@ const callTraceFileGenerateURLOneTimeTokenAdapter = "/adapter/generate_url_one_t
 
 func MakeGenerateURLOneTimeTokenErrResponse(regexErrMsgs *map[string][]string, message string, errs []error) []byte {
 	var callTraceFunc = fmt.Sprintf("%s#MakeGenerateURLOneTimeTokenResponse", callTraceFileGenerateURLOneTimeTokenAdapter)
-	responseBodyTemplate := entity.ResponseBodyTemplate{RegexNoMatchMsgs: regexErrMsgs, Message: message, Errs: errs}
+	responseBodyTemplate := entity.ResponseBodyTemplate{RegexNoMatchMsgs: regexErrMsgs, Message: &message, Errs: errs}
 	jsonBody, err := json.Marshal(responseBodyTemplate)
 	if err != nil {
 		errorkit.IsNotNilThenLog(errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrJsonMarshal, errorkit.ErrDescGeneratorFunc(GenerateDetailedErrDesc), "generate url one time token response body template"))

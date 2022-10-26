@@ -15,8 +15,6 @@ import (
 	"ilhammhdd.com/oauth2-go-server/usecase"
 )
 
-// TODO: update github.com/ilhammhdd/go-toolkit to v0.4.0 and refactor accordingly
-
 const callTraceFileMain = "/main.go"
 
 func init() {
@@ -44,7 +42,6 @@ func init() {
 	fmt.Printf("\n%v", entity.EnvVars)
 }
 
-// TODO: the naming convention is a mess, especially for finish client registration. tidy it up!
 func main() {
 	var callTraceFunc string = fmt.Sprintf("%s#main", callTraceFileMain)
 	entity.EphemeralKeyPair = usecase.GenerateKeyPair(entity.EnvVars[entity.PlainKeyPairSeedEnvVar].Value)
@@ -62,7 +59,7 @@ func main() {
 		os.Unsetenv(entity.CsrfTokenPlainKeyEnvVar)
 	}
 
-	http.Handle("/", http.FileServer(http.Dir("./static")))
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 	http.Handle("/register-client", &restkit.MethodRouting{
 		GetHandler:  controller.NewInitiateClientRegistration(external.MariaDB),
 		PostHandler: controller.NewFinishClientRegistration(external.MariaDB),
@@ -114,7 +111,7 @@ func main() {
 		},
 	})
 
-	server := http.Server{Addr: fmt.Sprintf(":%s", entity.EnvVars[entity.HttpPortEnvVar].Value)}
+	server := http.Server{Addr: fmt.Sprintf(":%s", entity.EnvVars[entity.HTTPPortEnvVar].Value)}
 	defer server.Close()
 	err := server.ListenAndServe()
 	if err != nil {

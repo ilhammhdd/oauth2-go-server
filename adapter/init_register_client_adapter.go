@@ -26,7 +26,7 @@ func MakeRegisterInitiateClientResponseBody(regexNoMatchMsgs *map[string][]strin
 		crIn.ServerSK = ""
 	}
 
-	response, err := json.Marshal(InitiateRegisterClientResponse{crIn, entity.ResponseBodyTemplate{RegexNoMatchMsgs: regexNoMatchMsgs, Message: "", Errs: errs}})
+	response, err := json.Marshal(InitiateRegisterClientResponse{crIn, entity.ResponseBodyTemplate{RegexNoMatchMsgs: regexNoMatchMsgs, Message: nil, Errs: errs}})
 	if err != nil {
 		errorkit.IsNotNilThenLog(errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrJsonMarshal, errorkit.ErrDescGeneratorFunc(GenerateDetailedErrDesc), "InitiateRegisterClientResponse"))
 	}

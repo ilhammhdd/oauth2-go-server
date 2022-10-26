@@ -61,8 +61,6 @@ func GenerateRegexErrDesc(regexConst uint, args ...string) string {
 		return generateDescOfArgs("is not a valid Bearer access token", args...)
 	case RegexBase64RawURL:
 		return generateDescOfArgs("is not a valid base64 raw URL encoding", args...)
-	case regexkit.ParamNotExists:
-		return generateDescOfArgs("param not exists", args...)
 	default:
 		return fmt.Sprintf("no error message for regex const [%d] found", regexConst)
 	}

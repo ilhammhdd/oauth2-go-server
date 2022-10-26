@@ -26,11 +26,15 @@ var Regex map[uint]string = map[uint]string{
 	RegexBase64RawURL:            `^([0-9a-zA-Z_-]*)$`,
 }
 
-func FlattenErrMessages(mapErrMessage *map[string][]string) []string {
+func FlattenMapSliceString(mapErrMessage *map[string][]string) []string {
 	var flatten []string
 	for key, val := range *mapErrMessage {
 		for idx, errMessage := range val {
-			flatten = append(flatten, fmt.Sprintf("%s[%d] %s", key, idx, errMessage))
+			if len(val) == 1 {
+				flatten = append(flatten, fmt.Sprintf("%s: %s", key, errMessage))
+			} else {
+				flatten = append(flatten, fmt.Sprintf("%s[%d]: %s", key, idx, errMessage))
+			}
 		}
 	}
 	return flatten

@@ -26,7 +26,7 @@ type RegisterUser struct {
 	ErrDescGen errorkit.ErrDescGenerator
 }
 
-func (ru RegisterUser) VerifyCsrfTokenHmac(csrfToken, csrfToeknHmac string) *errorkit.DetailedError {
+func (ru RegisterUser) VerifyCsrfTokenHmac(csrfToken, csrfTokenHmac string) *errorkit.DetailedError {
 	var callTraceFunc = fmt.Sprintf("%s#*RegisterUser.VerifyCsrfTokenHmac", callTraceFileRegisterUserUsecase)
 
 	csrfTokenRaw, err := base64.RawURLEncoding.DecodeString(csrfToken)
@@ -36,7 +36,12 @@ func (ru RegisterUser) VerifyCsrfTokenHmac(csrfToken, csrfToeknHmac string) *err
 
 	calculatedCsrfTokenHmac := hmac.New(sha256.New, []byte(*entity.EphemeralCsrfTokenKey)).Sum(csrfTokenRaw)
 
-	if !hmac.Equal(calculatedCsrfTokenHmac, []byte(csrfToeknHmac)) {
+	csrfTokenHmacRaw, err := base64.RawURLEncoding.DecodeString(csrfTokenHmac)
+	if err != nil {
+		return errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrBase64Decoding, ru.ErrDescGen, "csrf-token-hmac")
+	}
+
+	if !hmac.Equal(calculatedCsrfTokenHmac, csrfTokenHmacRaw) {
 		return errorkit.NewDetailedError(true, callTraceFunc, nil, entity.FlowErrInvalidCsrfToken, ru.ErrDescGen)
 	}
 

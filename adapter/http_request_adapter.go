@@ -11,12 +11,12 @@ import (
 
 const callTraceFileHttpRequestAdapter = "/adapter/http_request_adapter.go"
 
-func ReadRequesBody[T interface{}](r *http.Request, detailedErrArgs ...string) (*T, *errorkit.DetailedError) {
+func ReadRequestBody[T interface{}](r *http.Request, detailedErrArgs ...string) (*T, *errorkit.DetailedError) {
 	var callTraceFunc = fmt.Sprintf("%s#ReadRequesBody", callTraceFileHttpRequestAdapter)
 
 	bodyData := make([]byte, r.ContentLength)
 	r.Body.Read(bodyData)
-	// defer r.Body.Close()
+	defer r.Body.Close()
 
 	var result T
 	err := json.Unmarshal(bodyData, &result)

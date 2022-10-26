@@ -39,8 +39,8 @@ func (guott GenerateURLOneTimeToken) ServeHTTP(w http.ResponseWriter, r *http.Re
 	rules := make(map[string]uint)
 	rules["client_id"] = regexkit.RegexUUIDV4
 
-	upv := restkit.URLParamValidation{RegexRules: rules, Values: r.URL.Query()}
-	if regexErrMsgs, valid := upv.Validate(errorkit.ErrDescGeneratorFunc(adapter.GenerateRegexErrDesc)); !valid && regexErrMsgs != nil {
+	upv := restkit.URLQueryValidation{RegexRules: rules, Values: r.URL.Query()}
+	if regexErrMsgs, valid := upv.Validate(adapter.DetailedErrDescGen, adapter.RegexErrDescGen); !valid && regexErrMsgs != nil {
 		responseBodyTmpl := entity.ResponseBodyTemplate{RegexNoMatchMsgs: regexErrMsgs}
 		jsonBody, err := json.Marshal(responseBodyTmpl)
 		if err != nil {
@@ -89,14 +89,12 @@ func (guott GenerateURLOneTimeToken) SelectClientByClientID(clientID string) (*u
 	var callTraceFunc = fmt.Sprintf("%s#GenerateURLOneTimeToken.SelectClientByClientID", callTraceFileGenerateURLOneTimeTokenController)
 
 	row, err := guott.dbo.QueryRow("SELECT id, client_secret FROM clients WHERE client_id = ?", clientID)
-	if err != nil && err == sql.ErrNoRows {
-		return nil, errorkit.NewDetailedError(true, callTraceFunc, err, entity.FlowErrNotFoundBy, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "clients", "id", "client_secret")
-	} else if err != nil {
-		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBSelect, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "clients")
+	if detailedErr := handleSelectTableErr(err, callTraceFunc, "clients", "client_id"); detailedErr != nil {
+		return nil, detailedErr
 	}
 
 	var client usecase.SelectClientByClientIDResult
-	if err := row.Scan(&client.ID, &client.ClientSecret); err != nil {
+	if err := row.Scan(&client.ID, &client.ClientSecret); err != nil && err != sql.ErrNoRows {
 		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBScan, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "clients", "client")
 	}
 
@@ -107,14 +105,12 @@ func (guott GenerateURLOneTimeToken) SelectCountURLOneTimeToken(clientsID uint64
 	var callTraceFunc = fmt.Sprintf("%s#GenerateURLOneTimeToken).SelectCountURLOneTimeToken", callTraceFileGenerateURLOneTimeTokenController)
 
 	row, err := guott.dbo.QueryRow("SELECT COUNT(uott.id) FROM url_one_time_tokens uott JOIN clients c ON uott.clients_id = c.id WHERE c.id = ? AND uott.url = ?", clientsID, url)
-	if err != nil && err == sql.ErrNoRows {
-		return 0, errorkit.NewDetailedError(true, callTraceFunc, err, entity.FlowErrNotFoundBy, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "clients", "id", "client_secret")
-	} else if err != nil {
-		return 0, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBSelect, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "clients")
+	if detailedErr := handleSelectTableErr(err, callTraceFunc, "COUNT(url_one_time_tokens.id)", "clients.id", "url_one_time_tokens.id"); detailedErr != nil {
+		return 0, detailedErr
 	}
 
 	var count uint32
-	if err = row.Scan(&count); err != nil {
+	if err = row.Scan(&count); err != nil && err != sql.ErrNoRows {
 		return 0, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBScan, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "count(url_one_time_tokens.id)", "count")
 	}
 	return count, nil

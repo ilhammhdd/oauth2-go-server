@@ -66,8 +66,8 @@ type RedirectUri struct {
 func FlattenRedirectURIsNonTemplateColumnsValue(redirectURIs *[]RedirectUri, clientsID uint64) []interface{} {
 	var uris []interface{} = make([]interface{}, len(*redirectURIs)*2)
 	for i := 0; i < len(*redirectURIs); i += 2 {
-		uris[i] = (*redirectURIs)[i].URI
-		uris[i+1] = clientsID
+		uris[i*2] = (*redirectURIs)[i].URI
+		uris[i*2+1] = clientsID
 	}
 	return uris
 }
@@ -84,8 +84,8 @@ type Contact struct {
 func FlattenContactsNonTemplateColumnsValue(contacts *[]Contact, clientsID uint64) []interface{} {
 	var uris []interface{} = make([]interface{}, len(*contacts)*2)
 	for idx := range *contacts {
-		uris[idx] = (*contacts)[idx].Contact
-		uris[idx+1] = clientsID
+		uris[idx*2] = (*contacts)[idx].Contact
+		uris[idx*2+1] = clientsID
 	}
 	return uris
 }

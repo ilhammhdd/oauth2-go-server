@@ -16,6 +16,7 @@ const callTraceFileRenderRegisterUserController = "/controller/render_register_u
 
 type renderRegisterTmplData struct {
 	CsrfToken string
+	ClientID  string
 }
 
 type RenderRegisterUser struct {
@@ -36,17 +37,15 @@ func (rru *RenderRegisterUser) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	verified, detailedErr := renderRegisterUserUsecase.VerifySignature()
 	if !verified || errorkit.IsNotNilThenLog(detailedErr) {
-		respBody := entity.ResponseBodyTemplate{Errs: []error{detailedErr}}
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
 		w.WriteHeader(http.StatusBadRequest)
-		rru.htmlTemplateExecutor.ExecuteTemplate("error_tmpl", "static/error.html", respBody, w)
 		return
 	}
 
 	csrfToken, hmac, detailedErr := renderRegisterUserUsecase.GenerateCsrfTokenAndHmac()
 	if errorkit.IsNotNilThenLog(detailedErr) && detailedErr.Flow {
-		respBody := entity.ResponseBodyTemplate{Errs: []error{detailedErr}}
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
 		w.WriteHeader(http.StatusBadRequest)
-		rru.htmlTemplateExecutor.ExecuteTemplate("error_tmpl", "static/error.html", respBody, w)
 		return
 	}
 
@@ -54,7 +53,7 @@ func (rru *RenderRegisterUser) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		Name: "csrf-token-hmac", Value: hmac, Path: "/register", MaxAge: 300, HttpOnly: true, Secure: true,
 	})
 	w.WriteHeader(http.StatusOK)
-	rru.htmlTemplateExecutor.ExecuteTemplate("register_tmpl", "static/register.html", renderRegisterTmplData{csrfToken}, w)
+	rru.htmlTemplateExecutor.ExecuteTemplate("register_tmpl", "static/register.html", renderRegisterTmplData{csrfToken, r.URL.Query().Get("client_id")}, w)
 }
 
 func (rru *RenderRegisterUser) DeleteURLOneTimeToken(oneTimeToken string, signature string) *errorkit.DetailedError {
@@ -71,26 +70,22 @@ func (rru *RenderRegisterUser) SelectURLOneTimeToken(clientID string, oneTimeTok
 	var callTraceFunc = fmt.Sprintf("%s#*RenderRegisterUser.SelectURLOneTimeToken", callTraceFileRenderRegisterUserController)
 
 	row, err := rru.dbo.QueryRow("SELECT id FROM clients WHERE client_id = ?", clientID)
-	if err != nil && err != sql.ErrNoRows {
-		return nil, errorkit.NewDetailedError(true, callTraceFunc, err, entity.FlowErrNotFoundBy, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "COUNT(clients.id)", "client_id")
-	} else if err != nil {
-		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBSelect, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "clients")
+	if detailedErr := handleSelectTableErr(err, callTraceFunc, "clients", "client_id"); detailedErr != nil {
+		return nil, detailedErr
 	}
 
 	var clientsID uint64
-	if err = row.Scan(&clientsID); err != nil {
+	if err = row.Scan(&clientsID); err != nil && err != sql.ErrNoRows {
 		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBScan, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "COUNT(clients.id)", "id")
 	}
 
-	row, err = rru.dbo.QueryRow("SELECT * FROM url_one_time_tokens WHERE one_time_token = ? AND signature = ? AND clients_id= ?", oneTimeToken, signature, clientsID)
-	if err != nil && err != sql.ErrNoRows {
-		return nil, errorkit.NewDetailedError(true, callTraceFunc, err, entity.FlowErrNotFoundBy, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "url_one_time_tokens", "one_time_token", "signature", "clients_id")
-	} else if err != nil {
-		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBSelect, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "url_one_time_tokens")
+	row, err = rru.dbo.QueryRow("SELECT * FROM url_one_time_tokens WHERE one_time_token = ? AND signature = ? AND clients_id = ?", oneTimeToken, signature, clientsID)
+	if detailedErr := handleSelectTableErr(err, callTraceFunc, "url_one_time_tokens", "one_time_token", "signature", "clients_id"); detailedErr != nil {
+		return nil, detailedErr
 	}
 
 	var urlOneTimeToken entity.URLOneTimeToken
-	if err = row.Scan(&urlOneTimeToken.ID, &urlOneTimeToken.CreatedAt, &urlOneTimeToken.UpdatedAt, &urlOneTimeToken.SoftDeletedAt, &urlOneTimeToken.Pk, &urlOneTimeToken.Sk, &urlOneTimeToken.OneTimeToken, &urlOneTimeToken.Signature, &urlOneTimeToken.URL, &urlOneTimeToken.ClientsID); err != nil {
+	if err = row.Scan(&urlOneTimeToken.ID, &urlOneTimeToken.CreatedAt, &urlOneTimeToken.UpdatedAt, &urlOneTimeToken.SoftDeletedAt, &urlOneTimeToken.Pk, &urlOneTimeToken.Sk, &urlOneTimeToken.OneTimeToken, &urlOneTimeToken.Signature, &urlOneTimeToken.URL, &urlOneTimeToken.ClientsID); err != nil && err != sql.ErrNoRows {
 		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBScan, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "url_one_time_tokens.*", "urlOneTimeToken")
 	}
 	return &urlOneTimeToken, nil
