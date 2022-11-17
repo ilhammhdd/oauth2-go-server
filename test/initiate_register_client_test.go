@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/ilhammhdd/go-toolkit/errorkit"
 	"golang.org/x/crypto/blake2b"
 	"ilhammhdd.com/oauth2-go-server/entity"
+	"ilhammhdd.com/oauth2-go-server/vendor/github.com/ilhammhdd/go-toolkit/sqlkit"
 )
 
 type TryJsonTime struct {
@@ -19,23 +19,20 @@ type TryJsonTime struct {
 }
 
 func TestInitiateRegisterClient(t *testing.T) {
-	uuid, err := uuid.NewRandom()
-	if err != nil {
-		t.Fatalf("uuid new random error: %s", err.Error())
-	}
-	uuidBlake2b256 := blake2b.Sum256([]byte(uuid.String()))
-	t.Logf("\nuuid: %s, base64 uuidBlake2b256: %s", uuid, base64.RawURLEncoding.EncodeToString(uuidBlake2b256[:]))
+	id := entity.GenerateRandID()
+	idBlake2b256 := blake2b.Sum256([]byte(id))
+	t.Logf("\nuuid: %s, base64 uuidBlake2b256: %s", id, base64.RawURLEncoding.EncodeToString(idBlake2b256[:]))
 
-	icr, detailedErr := entity.NewInitiateClientRegistration(nil)
+	icr, detailedErr := entity.NewClientRegistration(nil)
 	if errorkit.IsNotNilThenLog(detailedErr) {
 		t.Fatalf("\n%s", detailedErr.Error())
 	}
 	t.Logf("\nsession expired at zero-value RFC3339nano: %s", icr.SessionExpiredAt.Format(time.RFC3339Nano))
 
-	icr.SessionExpiredAt = time.Now().UTC()
+	icr.SessionExpiredAt = sqlkit.TimeNowUTCStripNano()
 	t.Logf("\nsession expired at UTC RFC3339nano: %s", icr.SessionExpiredAt.Format(time.RFC3339Nano))
 
-	tjt := TryJsonTime{DateTime: time.Now().UTC()}
+	tjt := TryJsonTime{DateTime: sqlkit.TimeNowUTCStripNano()}
 	tjtJson, err := json.Marshal(tjt)
 	if err != nil {
 		t.Fatalf("\nerror marshalling TryJsonTime: %s", err.Error())

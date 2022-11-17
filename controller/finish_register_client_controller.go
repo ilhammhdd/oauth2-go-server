@@ -27,9 +27,9 @@ func (fcr *FinishClientRegistration) ServeHTTP(w http.ResponseWriter, r *http.Re
 	// var callTraceFunc = fmt.Sprintf("%s#*FinishClientRegistration.ServeHTTP", callTraceFileFinishRegisterClientController)
 	w.Header().Set("Content-Type", "application/json")
 
-	accessToken := fcr.getAccessToken(r.Header.Get("Authorization"))
+	authzToken := fcr.getAuthzToken(r.Header.Get("Authorization"))
 
-	fcrr, regexErrMsgs := fcr.validateRequest(r)
+	fcrr, regexErrMsgs := fcr.validateAndParseRequest(r)
 	if len(regexErrMsgs) > 0 {
 		if _, ok := regexErrMsgs["Authorization"]; ok {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -41,13 +41,13 @@ func (fcr *FinishClientRegistration) ServeHTTP(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	result, detailedErr := usecase.FinishClientRegistration(fcrr, accessToken, fcr, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc))
+	result, detailedErr := usecase.FinishClientRegistration(fcrr, authzToken, fcr, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc))
 
 	if errorkit.IsNotNilThenLog(detailedErr) {
 		if !detailedErr.Flow {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write(nil)
-		} else if detailedErr.ErrDescConst == entity.FlowErrBearerAccessTokenNotFound || detailedErr.ErrDescConst == entity.FlowErrUnauthorizedBearerAccessToken {
+		} else if detailedErr.ErrDescConst == entity.FlowErrBearerAuthzTokenNotFound || detailedErr.ErrDescConst == entity.FlowErrUnauthorizedBearerAuthzToken {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write(adapter.MakeFinishClientRegistrationResponseBody(nil, "", []error{detailedErr}, nil, nil))
 		} else {
@@ -61,22 +61,22 @@ func (fcr *FinishClientRegistration) ServeHTTP(w http.ResponseWriter, r *http.Re
 	w.Write(adapter.MakeFinishClientRegistrationResponseBody(nil, "", nil, result, &fcrr.FinishClientRegistrationShared))
 }
 
-func (fcr *FinishClientRegistration) getAccessToken(bearerAccessToken string) string {
-	if !strings.Contains(bearerAccessToken, "Bearer ") {
+func (fcr *FinishClientRegistration) getAuthzToken(bearerAuthzToken string) string {
+	if !strings.Contains(bearerAuthzToken, "Bearer ") {
 		return ""
 	}
-	split := strings.Split(bearerAccessToken, " ")
+	split := strings.Split(bearerAuthzToken, " ")
 	if len(split) != 2 {
 		return ""
 	}
 	return split[1]
 }
 
-func (fcr *FinishClientRegistration) validateRequest(r *http.Request) (fcrr *entity.FinishClientRegistrationRequest, regexErrMsgs map[string][]string) {
-	var callTraceFunc = fmt.Sprintf("%s#FinishClientRegistration.validateRequest", callTraceFileFinishRegisterClientController)
+func (fcr *FinishClientRegistration) validateAndParseRequest(r *http.Request) (fcrr *entity.FinishClientRegistrationRequest, regexErrMsgs map[string][]string) {
+	var callTraceFunc = fmt.Sprintf("%s#*FinishClientRegistration.validateAndParseRequest", callTraceFileFinishRegisterClientController)
 
 	headerRules := make(map[string]uint)
-	headerRules["Authorization"] = adapter.RegexBearerAccessToken
+	headerRules["Authorization"] = adapter.RegexBearerAuthzToken
 	headerRules["Content-Type"] = adapter.RegexAppliationJson
 	headerRules["Accept"] = adapter.RegexAppliationJson
 	hpv := restkit.HeaderParamValidation{RegexRules: headerRules, Header: r.Header}
@@ -201,16 +201,16 @@ func (fcr *FinishClientRegistration) validateRequestBody(body *entity.FinishClie
 	return allErrMsgs
 }
 
-func (fcr *FinishClientRegistration) SelectClientRegistrationBy(initClientIdChecksum string) (*entity.ClientRegistration, *errorkit.DetailedError) {
+func (fcr *FinishClientRegistration) SelectClientRegistrationsBy(initClientID string) (*entity.ClientRegistration, *errorkit.DetailedError) {
 	var callTraceFunc = fmt.Sprintf("%s#*FinishClientRegistration.SelectClientRegistrationBy", callTraceFileFinishRegisterClientController)
 
-	row, err := fcr.dbo.QueryRow("SELECT * FROM client_registrations WHERE init_client_id_checksum = ?", initClientIdChecksum)
-	if detailedErr := handleSelectTableErr(err, callTraceFunc, "client_registrations", "init_client_id_checksum"); detailedErr != nil {
+	row, err := fcr.dbo.QueryRow("SELECT * FROM client_registrations WHERE init_client_id = ?", initClientID)
+	if detailedErr := handleSelectTableErr(err, callTraceFunc, "client_registrations", "init_client_id"); detailedErr != nil {
 		return nil, detailedErr
 	}
 
 	var celientRegistration entity.ClientRegistration
-	if err := row.Scan(&celientRegistration.ID, &celientRegistration.CreatedAt, &celientRegistration.UpdatedAt, &celientRegistration.SoftDeletedAt, &celientRegistration.InitClientIDChecksum, &celientRegistration.Basepoint, &celientRegistration.ServerSK, &celientRegistration.ServerPK, &celientRegistration.SessionExpiredAt); err != nil && err != sql.ErrNoRows {
+	if err := row.Scan(&celientRegistration.ID, &celientRegistration.CreatedAt, &celientRegistration.UpdatedAt, &celientRegistration.SoftDeletedAt, &celientRegistration.InitClientID, &celientRegistration.Basepoint, &celientRegistration.ServerSK, &celientRegistration.ServerPK, &celientRegistration.SessionExpiredAt); err != nil && err != sql.ErrNoRows {
 		return nil, errorkit.NewDetailedError(true, callTraceFunc, err, entity.ErrDBScan, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "client_registrations", "celientRegistration")
 	}
 	return &celientRegistration, nil
@@ -219,8 +219,8 @@ func (fcr *FinishClientRegistration) SelectClientRegistrationBy(initClientIdChec
 func (fcr *FinishClientRegistration) InsertClientWithRelations(clientsWithRel *entity.ClientWithRelations) *errorkit.DetailedError {
 	var callTraceFunc = fmt.Sprintf("%s#*FinishClientRegistration.InsertClientWithRelations", callTraceFileFinishRegisterClientController)
 
-	stmtInsertClient := fmt.Sprintf("INSERT INTO clients (token_endpoint_auth_method, grant_types, response_types, client_name, client_uri, logo_uri, scope, tos_uri, policy_uri, software_id, software_version, init_client_id_checksum, client_id, client_id_issued_at, client_secret, client_secret_expired_at) VALUES %s", sqlkit.GeneratePlaceHolder(16))
-	clientInsertResult, err := fcr.dbo.Command(stmtInsertClient, clientsWithRel.TokenEndpointAuthMethod, clientsWithRel.GrantTypes, clientsWithRel.ResponseTypes, clientsWithRel.ClientName, clientsWithRel.ClientURI, clientsWithRel.LogoURI, clientsWithRel.Scope, clientsWithRel.TosURI, clientsWithRel.PolicyURI, clientsWithRel.SoftwareID, clientsWithRel.SoftwareVersion, clientsWithRel.InitClientIDChecksum, clientsWithRel.ClientID, clientsWithRel.ClientIDIssuedAt, clientsWithRel.ClientSecret, clientsWithRel.ClientSecretExpiredAt)
+	stmtInsertClient := fmt.Sprintf("INSERT INTO clients (token_endpoint_auth_method, grant_types, response_types, client_name, client_uri, logo_uri, scope, tos_uri, policy_uri, software_id, software_version, init_client_id, client_id, client_id_issued_at, client_secret, client_secret_expired_at) VALUES %s", sqlkit.GeneratePlaceHolder(16))
+	clientInsertResult, err := fcr.dbo.Command(stmtInsertClient, clientsWithRel.TokenEndpointAuthMethod, clientsWithRel.GrantTypes, clientsWithRel.ResponseTypes, clientsWithRel.ClientName, clientsWithRel.ClientURI, clientsWithRel.LogoURI, clientsWithRel.Scope, clientsWithRel.TosURI, clientsWithRel.PolicyURI, clientsWithRel.SoftwareID, clientsWithRel.SoftwareVersion, clientsWithRel.InitClientID, clientsWithRel.ClientID, clientsWithRel.ClientIDIssuedAt, clientsWithRel.ClientSecret, clientsWithRel.ClientSecretExpiredAt)
 	if err != nil {
 		return errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBInsert, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "clients")
 	}
@@ -244,10 +244,10 @@ func (fcr *FinishClientRegistration) InsertClientWithRelations(clientsWithRel *e
 	return nil
 }
 
-func (fcr *FinishClientRegistration) DeleteInitClientRegistration(initClientIDChecksum string) *errorkit.DetailedError {
-	var callTraceFunc = fmt.Sprintf("%s#*FinishClientRegistration.DeleteInitClientRegistration", callTraceFileFinishRegisterClientController)
+func (fcr *FinishClientRegistration) DeleteClientRegistration(initClientID string) *errorkit.DetailedError {
+	var callTraceFunc = fmt.Sprintf("%s#*FinishClientRegistration.DeleteClientRegistration", callTraceFileFinishRegisterClientController)
 
-	if _, err := fcr.dbo.Command("DELETE FROM client_registrations WHERE init_client_id_checksum = ?", initClientIDChecksum); err != nil {
+	if _, err := fcr.dbo.Command("DELETE FROM client_registrations WHERE init_client_id = ?", initClientID); err != nil {
 		return errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBDelete, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "client_registrations")
 	}
 	return nil

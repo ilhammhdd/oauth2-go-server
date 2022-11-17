@@ -11,6 +11,7 @@ const (
 	HTTPSEnvVar                                      = "HTTPS"
 	ClientRegistrationSessionExpirationSecondsEnvVar = "CLIENT_REGISTRATION_SESSION_EXPIRATION_SECONDS"
 	CsrfTokenPlainKeyEnvVar                          = "CSRF_TOKEN_PLAIN_KEY"
+	ClientSecretExpirationSecondsEnvVar              = "CLIENT_SECRET_EXPIRATION_SECONDS"
 )
 
 var EnvVarKeys []string = []string{
@@ -24,6 +25,7 @@ var EnvVarKeys []string = []string{
 	HTTPSEnvVar,
 	ClientRegistrationSessionExpirationSecondsEnvVar,
 	CsrfTokenPlainKeyEnvVar,
+	ClientSecretExpirationSecondsEnvVar,
 }
 
 type EnvVarValue struct {

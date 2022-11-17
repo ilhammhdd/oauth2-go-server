@@ -144,10 +144,16 @@ func GenerateDetailedErrDesc(errDescConst uint, args ...string) string {
 		} else {
 			return "error while retrieving cookie"
 		}
-	case entity.FlowErrBearerAccessTokenNotFound:
-		return "Bearer access token not found"
-	case entity.FlowErrUnauthorizedBearerAccessToken:
-		return "unauthorized Bearer access token"
+	case entity.FlowErrBearerAuthzTokenNotFound:
+		return "Bearer authorization token not found"
+	case entity.FlowErrUnauthorizedBearerAuthzToken:
+		if len(args) == 1 {
+			return fmt.Sprintf("unauthorized Bearer authorization token while doing %s", args[0])
+		} else {
+			return "unauthorized Bearer authorization token"
+		}
+	case entity.FlowErrBearerAuthzTokenExpired:
+		return "Bearer authorization token expired"
 	case entity.ErrRequiredColumnIsNil:
 		if len(args) == 1 {
 			return fmt.Sprintf("required column %s is nil", args[0])
@@ -174,6 +180,20 @@ func GenerateDetailedErrDesc(errDescConst uint, args ...string) string {
 		}
 	case entity.FlowErrInvalidCsrfToken:
 		return "invalid csrf token based on its signature"
+	case entity.FlowErrUnexpiredClientSecret:
+		return "client's secret is not yet expired"
+	case entity.FlowErrZeroValue:
+		if len(args) > 0 {
+			return fmt.Sprintf("args are zero value: [%s]", strings.Join(args, ", "))
+		} else {
+			return "a zero value"
+		}
+	case entity.ErrDBUpdate:
+		if len(args) > 1 {
+			return fmt.Sprintf("error updating [%s] of %s table", strings.Join(args[:len(args)-1], ", "), args[:len(args)-1])
+		} else {
+			return "error updating to table"
+		}
 	default:
 		return "error description constant undefined"
 	}

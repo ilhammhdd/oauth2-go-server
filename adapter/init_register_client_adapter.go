@@ -16,8 +16,8 @@ type InitiateRegisterClientResponse struct {
 }
 
 // strip template columns from ClientRegistration before generating the response json
-func MakeRegisterInitiateClientResponseBody(regexNoMatchMsgs *map[string][]string, errs []error, crIn *entity.ClientRegistration) []byte {
-	var callTraceFunc = fmt.Sprintf("%s#MakeRegisterInitiateClientResponseBody", callTraceFileInitRegisterClientAdapter)
+func MakeInitiateRegisterClientResponseBody(regexNoMatchMsgs *map[string][]string, errs []error, crIn *entity.ClientRegistration) []byte {
+	var callTraceFunc = fmt.Sprintf("%s#MakeInitiateRegisterClientResponseBody", callTraceFileInitRegisterClientAdapter)
 	if crIn != nil {
 		crIn.ID = nil
 		crIn.CreatedAt = nil

@@ -5,10 +5,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/ilhammhdd/go-toolkit/errorkit"
+	"github.com/ilhammhdd/go-toolkit/sqlkit"
 	"golang.org/x/crypto/blake2b"
 	"ilhammhdd.com/oauth2-go-server/entity"
 )
@@ -16,72 +15,77 @@ import (
 const callTraceFileFinishRegisterClientUsecase = "/usecase/finish_register_client_usecase.go"
 
 type FinishClientRegistrationDBOperator interface {
-	SelectClientRegistrationBy(initClientIdChecksum string) (*entity.ClientRegistration, *errorkit.DetailedError)
+	SelectClientRegistrationsBy(initClientID string) (*entity.ClientRegistration, *errorkit.DetailedError)
 	InsertClientWithRelations(*entity.ClientWithRelations) *errorkit.DetailedError
-	DeleteInitClientRegistration(initClientIDChecksum string) *errorkit.DetailedError
+	DeleteClientRegistration(initClientID string) *errorkit.DetailedError
 }
 
-func FinishClientRegistration(fcrr *entity.FinishClientRegistrationRequest, accessToken string, dbo FinishClientRegistrationDBOperator, errDescGen errorkit.ErrDescGenerator) (*entity.FinishClientRegistrationResult, *errorkit.DetailedError) {
+func FinishClientRegistration(fcrr *entity.FinishClientRegistrationRequest, authzToken string, dbo FinishClientRegistrationDBOperator, errDescGen errorkit.ErrDescGenerator) (*entity.FinishClientRegistrationResult, *errorkit.DetailedError) {
 	var callTraceFunc = fmt.Sprintf("%s#FinishClientRegistration", callTraceFileFinishRegisterClientUsecase)
 
-	initClientIDChecksum := fcrr.HashAndEncodeInitClientID()
-	icr, detailedErr := dbo.SelectClientRegistrationBy(initClientIDChecksum)
-	if errorkit.IsNotNilThenLog(detailedErr) {
+	defer dbo.DeleteClientRegistration(fcrr.InitClientID)
+
+	cr, detailedErr := dbo.SelectClientRegistrationsBy(fcrr.InitClientID)
+	if detailedErr != nil {
 		return nil, detailedErr
 	}
-	/* if err != nil && err == sql.ErrNoRows {
-		return nil, errorkit.NewDetailedError(true, callTraceFunc, err, entity.FlowErrNotFoundBy, errDescGen, "client_registrations", "init_client_id_checksum")
-	} else if err != nil {
-		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrSql, errDescGen)
-	} */
 
-	fcrr.ServerSK = icr.ServerSK
-	serverPkStored, err := base64.RawURLEncoding.DecodeString(icr.ServerPK)
+	fcrr.ServerSK = cr.ServerSK
+	serverPkStored, err := base64.RawURLEncoding.DecodeString(cr.ServerPK)
 	if err != nil {
 		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrBase64Decoding, errDescGen, "server_pk")
 	}
-	basepointStored, err := base64.RawURLEncoding.DecodeString(icr.Basepoint)
+	basepointStored, err := base64.RawURLEncoding.DecodeString(cr.Basepoint)
 	if err != nil {
 		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrBase64Decoding, errDescGen, "basepoint")
 	}
 
-	icrServerPk, err := base64.RawURLEncoding.DecodeString(icr.ServerPK)
+	icrServerPk, err := base64.RawURLEncoding.DecodeString(cr.ServerPK)
 	if err != nil {
 		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrBase64Decoding, errDescGen, "stored server_pk")
 	}
-	icrBasepoint, err := base64.RawURLEncoding.DecodeString(icr.Basepoint)
+	icrBasepoint, err := base64.RawURLEncoding.DecodeString(cr.Basepoint)
 	if err != nil {
 		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrBase64Decoding, errDescGen, "stored basepoint")
 	}
-	if !bytes.Equal(icrServerPk, serverPkStored) && bytes.Equal(icrBasepoint, basepointStored) && fcrr.SessionExpiredAt.Equal(icr.SessionExpiredAt) {
-		return nil, errorkit.NewDetailedError(true, callTraceFunc, nil, entity.FlowErrDataNotMatched, errDescGen, "server_pk", "basepoint", "session_expired_at")
+
+	var errsDataNotMatched []string
+	if !bytes.Equal(icrServerPk, serverPkStored) {
+		errsDataNotMatched = append(errsDataNotMatched, "server_pk")
+	}
+	if !bytes.Equal(icrBasepoint, basepointStored) {
+		errsDataNotMatched = append(errsDataNotMatched, "basepoint")
+	}
+	if !fcrr.SessionExpiredAt.Equal(cr.SessionExpiredAt) {
+		errsDataNotMatched = append(errsDataNotMatched, "session_expired_at")
+	}
+	if len(errsDataNotMatched) > 0 {
+		return nil, errorkit.NewDetailedError(true, callTraceFunc, nil, entity.FlowErrDataNotMatched, errDescGen, errsDataNotMatched...)
 	}
 
-	if fcrr.SessionExpiredAt.Sub(time.Now().UTC()).Nanoseconds() <= 0 {
+	sqlkit.TimeSubStripNano(fcrr.SessionExpiredAt, sqlkit.TimeNowUTCStripNano())
+	now := sqlkit.TimeNowUTCStripNano()
+	if now.Equal(fcrr.SessionExpiredAt) || now.After(fcrr.SessionExpiredAt) {
 		return nil, errorkit.NewDetailedError(true, callTraceFunc, nil, entity.FlowErrRegisterSessionExpired, errDescGen)
 	}
 
-	clientID, err := uuid.NewRandom()
-	if err != nil {
-		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrGenerateRandomUUIDv4, errDescGen, "client_id")
-	}
-	clientIDIssuedAt := time.Now().UTC()
-	clientPk, err := base64.RawURLEncoding.DecodeString(fcrr.ClientPK)
-	if err != nil {
-		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrBase64Decoding, errDescGen, "client_pk")
-	}
+	clientID := entity.GenerateRandID()
+	clientIDIssuedAt := sqlkit.TimeNowUTCStripNano()
 
-	clientSecret, detailedErr := fcrr.CalculateClientSecret(clientPk, errDescGen)
-	if notOk := errorkit.IsNotNilThenLog(detailedErr); notOk {
+	clientSecretRaw, detailedErr := fcrr.ClientRegistration.CalculateClientSecret(fcrr.ClientPK, errDescGen)
+	if detailedErr != nil {
 		return nil, detailedErr
 	}
-	clientSecretChecksum := blake2b.Sum256(clientSecret)
-	if accessToken != base64.RawURLEncoding.EncodeToString(clientSecretChecksum[:]) {
-		dbo.DeleteInitClientRegistration(initClientIDChecksum)
-		return nil, errorkit.NewDetailedError(true, callTraceFunc, nil, entity.FlowErrUnauthorizedBearerAccessToken, errDescGen)
+	clientSecretChecksumRaw := blake2b.Sum256(clientSecretRaw)
+	if authzToken != base64.RawURLEncoding.EncodeToString(clientSecretChecksumRaw[:]) {
+		return nil, errorkit.NewDetailedError(true, callTraceFunc, nil, entity.FlowErrUnauthorizedBearerAuthzToken, errDescGen)
 	}
 
-	clientSecretExpiredAt := time.Now().UTC().Add(30 * 24 * time.Hour)
+	clientSecretExpiredAt, detailedErr := entity.DetermineClientSecretExpiredAt(errDescGen)
+	if detailedErr != nil {
+		return nil, detailedErr
+	}
+
 	var redirectURIs []entity.RedirectUri = make([]entity.RedirectUri, len(fcrr.RedirectURIs))
 	for idx := range fcrr.RedirectURIs {
 		redirectURIs[idx] = entity.RedirectUri{URI: fcrr.RedirectURIs[idx]}
@@ -91,7 +95,7 @@ func FinishClientRegistration(fcrr *entity.FinishClientRegistrationRequest, acce
 		contacts[idx] = entity.Contact{Contact: fcrr.Contacts[idx]}
 	}
 
-	if scanErr := dbo.InsertClientWithRelations(&entity.ClientWithRelations{
+	if insertErr := dbo.InsertClientWithRelations(&entity.ClientWithRelations{
 		Client: entity.Client{
 			GrantTypes:              []byte(strings.Join(fcrr.GrantTypes, ",")),
 			ResponseTypes:           []byte(strings.Join(fcrr.ResponseTypes, ",")),
@@ -104,20 +108,20 @@ func FinishClientRegistration(fcrr *entity.FinishClientRegistrationRequest, acce
 			PolicyURI:               fcrr.PolicyURI,
 			SoftwareID:              fcrr.SoftwareID,
 			SoftwareVersion:         fcrr.SoftwareVersion,
-			InitClientIDChecksum:    initClientIDChecksum,
-			ClientID:                clientID.String(),
+			InitClientID:            fcrr.InitClientID,
+			ClientID:                clientID,
 			ClientIDIssuedAt:        clientIDIssuedAt,
-			ClientSecret:            base64.RawURLEncoding.EncodeToString(clientSecret),
+			ClientSecret:            base64.RawURLEncoding.EncodeToString(clientSecretRaw),
 			ClientSecretExpiredAt:   clientSecretExpiredAt,
 		},
 		RedirectURIs: redirectURIs,
 		Contacts:     contacts,
-	}); scanErr == nil {
-		dbo.DeleteInitClientRegistration(initClientIDChecksum)
+	}); insertErr != nil {
+		return nil, insertErr
 	}
 
 	return &entity.FinishClientRegistrationResult{
-		ClientID:              string(clientID.String()),
+		ClientID:              string(clientID),
 		ClientIDIssuedAt:      clientIDIssuedAt,
 		ClientSecretExpiredAt: clientSecretExpiredAt,
 	}, nil

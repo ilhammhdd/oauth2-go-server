@@ -12,7 +12,7 @@ import (
 const callTraceFileHttpRequestAdapter = "/adapter/http_request_adapter.go"
 
 func ReadRequestBody[T interface{}](r *http.Request, detailedErrArgs ...string) (*T, *errorkit.DetailedError) {
-	var callTraceFunc = fmt.Sprintf("%s#ReadRequesBody", callTraceFileHttpRequestAdapter)
+	var callTraceFunc = fmt.Sprintf("%s#ReadRequestBody", callTraceFileHttpRequestAdapter)
 
 	bodyData := make([]byte, r.ContentLength)
 	r.Body.Read(bodyData)

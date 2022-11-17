@@ -1,13 +1,7 @@
 package entity
 
 import (
-	"encoding/base64"
-	"fmt"
 	"time"
-
-	"github.com/ilhammhdd/go-toolkit/errorkit"
-	"golang.org/x/crypto/blake2b"
-	"golang.org/x/crypto/curve25519"
 )
 
 const callTraceFileFinisRegisterClientEntity = "/entity/finish_register_client_entity.go"
@@ -45,29 +39,4 @@ type FinishClientRegistrationResponse struct {
 	*FinishClientRegistrationResult
 	ResponseBodyTemplate
 	*FinishClientRegistrationShared
-}
-
-func (fcr *FinishClientRegistrationRequest) HashAndEncodeInitClientID() string {
-	hash := blake2b.Sum256([]byte(fcr.InitClientID))
-	return base64.RawURLEncoding.EncodeToString(hash[:])
-}
-
-func (fcr *FinishClientRegistrationRequest) CalculateClientSecret(clientPk []byte, errDescGen errorkit.ErrDescGenerator) ([]byte, *errorkit.DetailedError) {
-	var callTraceFunc = fmt.Sprintf("%s#FinishClientRegistrationRequest.CalculateClientSecret", callTraceFileFinisRegisterClientEntity)
-	serverSk, err := base64.RawURLEncoding.DecodeString(fcr.ServerSK)
-	if err != nil {
-		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, ErrBase64Decoding, errDescGen, "server_sk")
-	}
-
-	clientSecret, err := curve25519.X25519(serverSk, clientPk)
-	if err != nil {
-		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, ErrX25519Mul, errDescGen, "server_sk", "client_pk")
-	}
-
-	return clientSecret, nil
-}
-
-func (fcr *FinishClientRegistrationRequest) GenerateClientSecretExpiredAt() time.Time {
-	time.Now().UTC().Add(30 * 24 * time.Hour)
-	return time.Now()
 }

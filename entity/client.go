@@ -1,10 +1,19 @@
 package entity
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ilhammhdd/go-toolkit/errorkit"
+	"github.com/ilhammhdd/go-toolkit/sqlkit"
+	"golang.org/x/crypto/blake2b"
 )
+
+const callTraceFileClient = "/entity/client.go"
 
 type DBSet []byte
 
@@ -41,11 +50,48 @@ type Client struct {
 	PolicyURI               string     `json:"policy_uri,omitempty"`
 	SoftwareID              string     `json:"software_id,omitempty"`
 	SoftwareVersion         string     `json:"software_version,omitempty"`
-	InitClientIDChecksum    string     `json:"init_client_id_checksum,omitempty"`
+	InitClientID            string     `json:"init_client_id,omitempty"`
 	ClientID                string     `json:"client_id,omitempty"`
 	ClientIDIssuedAt        time.Time  `json:"client_id_issued_at,omitempty"`
 	ClientSecret            string     `json:"client_secret,omitempty"`
 	ClientSecretExpiredAt   time.Time  `json:"client_secret_expired_at,omitempty"`
+}
+
+func (client *Client) Authenticate(inAuthzToken string, errDescGen errorkit.ErrDescGenerator) (bool, *errorkit.DetailedError) {
+	var callTraceFunc = fmt.Sprintf("%s#*Client.Authenticate", callTraceFileClient)
+
+	clientSecretRaw, err := base64.RawURLEncoding.DecodeString(client.ClientSecret)
+	if err != nil {
+		return false, errorkit.NewDetailedError(false, callTraceFunc, err, ErrBase64Decoding, errDescGen, "clients")
+	}
+
+	clientSecretChecksum := blake2b.Sum256(clientSecretRaw)
+	storedClientAuthzToken := base64.RawURLEncoding.EncodeToString(clientSecretChecksum[:])
+	if storedClientAuthzToken != inAuthzToken {
+		return false, errorkit.NewDetailedError(true, callTraceFunc, nil, FlowErrUnauthorizedBearerAuthzToken, errDescGen)
+	}
+
+	return true, nil
+}
+
+func (client *Client) IsExpired(errDescGen errorkit.ErrDescGenerator) (bool, *errorkit.DetailedError) {
+	var callTraceFunc = fmt.Sprintf("%s#*Client.IsExpired", callTraceFileClient)
+
+	if sqlkit.TimeNowUTCStripNano().Before(client.ClientSecretExpiredAt) {
+		return false, nil
+	}
+
+	return true, errorkit.NewDetailedError(true, callTraceFunc, nil, FlowErrBearerAuthzTokenExpired, errDescGen)
+}
+
+func DetermineClientSecretExpiredAt(errDescGen errorkit.ErrDescGenerator) (time.Time, *errorkit.DetailedError) {
+	var callTraceFunc = fmt.Sprintf("%s#DetermineClientSecretExpiredAt", callTraceFileClient)
+
+	clientSecretExpirationSeconds, err := strconv.ParseInt(EnvVars[ClientSecretExpirationSecondsEnvVar].Value, 10, 64)
+	if err != nil {
+		return time.Time{}, errorkit.NewDetailedError(false, callTraceFunc, err, ErrParseToInt, errDescGen, ClientSecretExpirationSecondsEnvVar)
+	}
+	return sqlkit.TimeAddStripNano(sqlkit.TimeNowUTCStripNano(), time.Duration(clientSecretExpirationSeconds)*time.Second), nil
 }
 
 type ClientWithRelations struct {
@@ -78,7 +124,7 @@ type Contact struct {
 	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
 	SoftDeletedAt *time.Time `json:"soft_deleted_at,omitempty"`
 	Contact       string     `json:"contact,omitempty"`
-	ClientsId     uint64     `json:"clients_id,omitempty"`
+	ClientsID     uint64     `json:"clients_id,omitempty"`
 }
 
 func FlattenContactsNonTemplateColumnsValue(contacts *[]Contact, clientsID uint64) []interface{} {

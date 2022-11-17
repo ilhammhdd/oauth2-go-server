@@ -10,7 +10,6 @@ document.getElementById('submit-btn').onclick = function () {
   } else if (password != confirmPassword) {
     alert('confirm password not matched!');
   } else {
-    // TODO: put the client_id in the url query param below
     fetch("/register?client_id=" + clientID, {
       method: 'POST',
       headers: { 'Csrf-Token': csrfToken },
@@ -20,10 +19,15 @@ document.getElementById('submit-btn').onclick = function () {
         password: password,
         confirm_password: confirmPassword
       })
-    }).then(response => response.json())
-      .then((data) => {
-        console.log(data);
-        alert(JSON.stringify(data));
+    }).then((response) => {
+      response.json().then(parsed => {
+        console.log(parsed);
+        if (response.status >= 200 && response.status <= 399) {
+          alert('register user success');
+        } else {
+          alert(JSON.stringify(parsed));
+        }
       })
+    })
   }
 }

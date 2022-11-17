@@ -41,3 +41,9 @@ func TestGenRandPass(t *testing.T) {
 	r, _ := entity.GenerateCryptoRand(12)
 	t.Logf("%s", base64.RawURLEncoding.EncodeToString(r))
 }
+
+func TestRandID(t *testing.T) {
+	for i := 0; i < 1000; i++ {
+		t.Log(entity.GenerateRandID())
+	}
+}

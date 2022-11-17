@@ -31,7 +31,9 @@
         "CLIENT_REGISTRATION_SESSION_EXPIRATION_SECONDS",
         "30000",
         "CSRF_TOKEN_PLAIN_KEY",
-        "for_csrf_token_hmac_key"
+        "for_csrf_token_hmac_key",
+        "CLIENT_SECRET_EXPIRATION_SECONDS",
+        "108000"
       ],
     }
   ]

@@ -1,11 +1,17 @@
 package adapter
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/ilhammhdd/go-toolkit/errorkit"
+)
 
 const (
 	OtherErrPasswordConstraint = iota
 	OtherErrConfirmPasswordNoMatch
 )
+
+var OtherErrDescGen = errorkit.ErrDescGeneratorFunc(GenerateOtherErrDesc)
 
 func GenerateOtherErrDesc(otherErrConst uint, args ...string) string {
 	switch otherErrConst {

@@ -13,7 +13,7 @@ import (
 const callTraceFileHtmlTemplateUtils = "/external/html_template.go"
 
 func ExecuteHTMLTemplate(templateName, fileName string, data interface{}, w http.ResponseWriter) {
-	var callTraceFunc = fmt.Sprintf("%s#ExecuteTemplate", callTraceFileHtmlTemplateUtils)
+	var callTraceFunc = fmt.Sprintf("%s#ExecuteHTMLTemplate", callTraceFileHtmlTemplateUtils)
 	tmpl, err := template.New(templateName).ParseFiles(fileName)
 	if err != nil {
 		errorkit.IsNotNilThenLog(errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrTemplateHTML, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "parsing", fileName))

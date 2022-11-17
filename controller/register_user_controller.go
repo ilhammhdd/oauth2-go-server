@@ -24,7 +24,7 @@ type RegisterUser struct {
 func (ru RegisterUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var callTraceFunc = fmt.Sprintf("%s#RegisterUser.ServeHTTP", callTraceFileRegisterUserController)
 
-	upv := restkit.URLQueryValidation{RegexRules: map[string]uint{"client_id": regexkit.RegexUUIDV4}, Values: r.URL.Query()}
+	upv := restkit.URLQueryValidation{RegexRules: map[string]uint{"client_id": adapter.RegexRandomID}, Values: r.URL.Query()}
 
 	regexErrMsgs, ok := upv.Validate(adapter.DetailedErrDescGen, adapter.RegexErrDescGen)
 	if !ok {
@@ -35,15 +35,15 @@ func (ru RegisterUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	registerUserRequest, detailedErr := adapter.ReadRequestBody[entity.RegisterUserRequest](r, "register user")
 	if errorkit.IsNotNilThenLog(detailedErr) {
-		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
 		return
 	}
 
 	regexErrMsgs = ru.validateRequest(r, registerUserRequest)
 	if len(*regexErrMsgs) > 0 {
-		w.Write(adapter.MakeResponseTmplErrResponse(regexErrMsgs, "", nil))
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write(adapter.MakeResponseTmplErrResponse(regexErrMsgs, "", nil))
 		return
 	}
 
@@ -54,18 +54,18 @@ func (ru RegisterUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	regexErrMsgs, ok = hpv.Validate(adapter.DetailedErrDescGen, adapter.RegexErrDescGen)
 	if !ok {
-		w.Write(adapter.MakeResponseTmplErrResponse(regexErrMsgs, "", nil))
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write(adapter.MakeResponseTmplErrResponse(regexErrMsgs, "", nil))
 		return
 	}
 
-	registerUserUsecase := usecase.RegisterUser{DBO: ru, ErrDescGen: errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc)}
+	registerUserUsecase := usecase.RegisterUser{OneTimeToken: r.URL.Query().Get("one_time_token"), Signature: r.URL.Query().Get("signature"), DBO: ru, ErrDescGen: errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc)}
 
-	cookieKey := "csrf-token-hmac"
+	cookieKey := "csrf-token-hmac-register"
 	csrfTokenHmac, err := r.Cookie(cookieKey)
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrRetrieveCookie, adapter.DetailedErrDescGen, "csrf-token-hmac")}))
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrRetrieveCookie, adapter.DetailedErrDescGen, "csrf-token-hmac-register")}))
 		return
 	}
 
@@ -80,7 +80,7 @@ func (ru RegisterUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, detailedErr = registerUserUsecase.CreateAndInsert(registerUserRequest.EmailAddress, registerUserRequest.Username, &registerUserRequest.Password, r.URL.Query().Get("client_id"))
+	detailedErr = registerUserUsecase.CreateAndInsert(registerUserRequest.EmailAddress, registerUserRequest.Username, &registerUserRequest.Password, r.URL.Query().Get("client_id"))
 	if errorkit.IsNotNilThenLog(detailedErr) {
 		if detailedErr.Flow {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -92,7 +92,6 @@ func (ru RegisterUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("success"))
 }
 
 func (ru RegisterUser) validateRequest(r *http.Request, registerUserRequest *entity.RegisterUserRequest) *map[string][]string {
@@ -107,7 +106,7 @@ func (ru RegisterUser) validateRequest(r *http.Request, registerUserRequest *ent
 	validatePassword("confirm_password", registerUserRequest.ConfirmPassword, &regexErrMsgs)
 
 	if registerUserRequest.Password != registerUserRequest.ConfirmPassword {
-		regexErrMsgs["confirm_password"] = []string{adapter.GenerateOtherErrDesc(adapter.OtherErrConfirmPasswordNoMatch)}
+		regexErrMsgs["confirm_password"] = []string{adapter.OtherErrDescGen(adapter.OtherErrConfirmPasswordNoMatch)}
 	}
 
 	return &regexErrMsgs
@@ -123,7 +122,7 @@ func validatePassword(key string, password string, regexErrMsgs *map[string][]st
 		var upperCaseFound bool
 		var lowerCaseFound bool
 		if len(password) < 6 {
-			(*regexErrMsgs)[key] = []string{adapter.RegexErrDescGen(adapter.OtherErrPasswordConstraint, key)}
+			(*regexErrMsgs)[key] = []string{adapter.OtherErrDescGen(adapter.OtherErrPasswordConstraint, key)}
 		} else {
 			for idx := range password {
 				if numericFound && upperCaseFound && lowerCaseFound {
@@ -138,7 +137,7 @@ func validatePassword(key string, password string, regexErrMsgs *map[string][]st
 				}
 			}
 			if !numericFound || !upperCaseFound || !lowerCaseFound {
-				(*regexErrMsgs)[key] = []string{adapter.RegexErrDescGen(adapter.OtherErrPasswordConstraint, key)}
+				(*regexErrMsgs)[key] = []string{adapter.OtherErrDescGen(adapter.OtherErrPasswordConstraint, key)}
 			}
 		}
 	}
@@ -214,6 +213,15 @@ func (ru RegisterUser) InsertUsername(username *entity.Username) *errorkit.Detai
 	_, err := ru.dbo.Command("INSERT INTO usernames (username, unq_num, users_id) VALUES (?, ?, ?)", username.Username, username.UnqNum, username.UsersID)
 	if err != nil {
 		return errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBInsert, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "usernames")
+	}
+	return nil
+}
+
+func (ru RegisterUser) InsertUserPasswordParams(userPasswordParams *entity.UserPasswordParams) *errorkit.DetailedError {
+	var callTraceFunc = fmt.Sprintf("%s#RegisterUser.InsertUserPasswordParams", callTraceFileRegisterUserController)
+	_, err := ru.dbo.Command(fmt.Sprintf("INSERT INTO user_password_params (rand_salt,time,memory,threads,keyLen,users_id) VALUES %s", sqlkit.GeneratePlaceHolder(6)), userPasswordParams.RandSalt, userPasswordParams.Time, userPasswordParams.Memory, userPasswordParams.Threads, userPasswordParams.KeyLen, userPasswordParams.UsersID)
+	if err != nil {
+		return errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBInsert, adapter.DetailedErrDescGen, "user_password_params")
 	}
 	return nil
 }

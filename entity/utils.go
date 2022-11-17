@@ -2,7 +2,10 @@ package entity
 
 import (
 	"crypto/rand"
+	"encoding/base64"
+	"encoding/binary"
 	"errors"
+	mathRand "math/rand"
 )
 
 const StackTraceSize = 1024 * 8
@@ -28,4 +31,20 @@ func GenerateCryptoRand(randLen int) ([]byte, error) {
 		return nil, errors.New("random n != randLen")
 	}
 	return randBuff, randErr
+}
+
+func GenerateRandID() string {
+	var mathBuf []byte
+	mathBuf = binary.LittleEndian.AppendUint64(mathBuf, uint64(mathRand.Int63n(281_474_976_710_656)))
+
+	randID := []rune(base64.RawURLEncoding.EncodeToString(mathBuf))
+	randID = randID[:8]
+
+	for i := range randID {
+		if randID[i] == '-' || randID[i] == '_' {
+			randID[i] = rune(mathRand.Int31n(26) + 65)
+		}
+	}
+
+	return string(randID)
 }

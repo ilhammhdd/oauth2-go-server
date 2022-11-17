@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/ilhammhdd/go-toolkit/errorkit"
 )
 
@@ -28,18 +27,36 @@ type URLOneTimeToken struct {
 	ClientsID     uint64     `json:"clients_id,omitempty"`
 }
 
-func NewURLOneTimeToken(clientsID uint64, clientID string, storedClientSecretRaw []byte, host string, path string, query url.Values, fragment string, errDescGen errorkit.ErrDescGenerator) (*URLOneTimeToken, *errorkit.DetailedError) {
-	var callTraceFunc = fmt.Sprintf("%s#*URLOneTimeToken.GenerateURL", callTraceFileURLOneTimeToken)
+func (uott *URLOneTimeToken) VerifySignature(signatureInReq string, errDescGen errorkit.ErrDescGenerator) (bool, *errorkit.DetailedError) {
+	var callTraceFunc = fmt.Sprintf("%s#*URLOneTimeToken.VerifySignature", callTraceFileURLOneTimeToken)
 
-	oneTimeToken, err := uuid.NewRandom()
+	pk, err := base64.RawURLEncoding.DecodeString(uott.Pk)
 	if err != nil {
-		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, ErrGenerateRandomUUIDv4, errDescGen, "one time token")
+		return false, errorkit.NewDetailedError(false, callTraceFunc, err, ErrBase64Encoding, errDescGen, "url one time token pk")
 	}
+
+	if len(pk) == 0 {
+		return false, nil
+	}
+
+	signatureInReqRaw, err := base64.RawURLEncoding.DecodeString(signatureInReq)
+	if err != nil {
+		return false, errorkit.NewDetailedError(false, callTraceFunc, err, ErrBase64Encoding, errDescGen, "signature in req")
+	}
+
+	verified := ed25519.Verify(pk, []byte(uott.OneTimeToken), signatureInReqRaw)
+	return verified, nil
+}
+
+func NewURLOneTimeToken(clientsID uint64, clientID string, host string, path string, query url.Values, fragment string, errDescGen errorkit.ErrDescGenerator) (*URLOneTimeToken, *errorkit.DetailedError) {
+	var callTraceFunc = fmt.Sprintf("%s#NewURLOneTimeToken", callTraceFileURLOneTimeToken)
+
+	oneTimeToken := GenerateRandID()
 	pk, sk, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, ErrEd25519GenerateKeyPair, errDescGen, "url one time token")
 	}
-	signature := ed25519.Sign(sk, []byte(oneTimeToken.String()))
+	signature := ed25519.Sign(sk, []byte(oneTimeToken))
 
 	// trim the /init subpath to get the desired absolute path
 	var urlBuilder strings.Builder
@@ -53,7 +70,7 @@ func NewURLOneTimeToken(clientsID uint64, clientID string, storedClientSecretRaw
 	urlBuilder.WriteString(strings.Replace(path, "/init", "", 1))
 
 	urlBuilder.WriteString("?")
-	query["one_time_token"] = []string{oneTimeToken.String()}
+	query["one_time_token"] = []string{oneTimeToken}
 	query["signature"] = []string{base64.RawURLEncoding.EncodeToString(signature)}
 	lastEle := len(query) - 1
 	count := 0
@@ -80,7 +97,7 @@ func NewURLOneTimeToken(clientsID uint64, clientID string, storedClientSecretRaw
 
 	return &URLOneTimeToken{
 		URL:          urlBuilder.String(),
-		OneTimeToken: oneTimeToken.String(),
+		OneTimeToken: oneTimeToken,
 		Signature:    base64.RawURLEncoding.EncodeToString(signature),
 		ClientsID:    clientsID,
 		Pk:           base64.RawURLEncoding.EncodeToString(pk),

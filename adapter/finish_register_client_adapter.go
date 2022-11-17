@@ -11,7 +11,7 @@ import (
 const callTraceFileFinishRegisterClient = "/adapter/finish_register_client_adapter.go"
 
 func MakeFinishClientRegistrationResponseBody(regexNoMatchMsgs *map[string][]string, message string, errors []error, result *entity.FinishClientRegistrationResult, shared *entity.FinishClientRegistrationShared) []byte {
-	var callTraceFunc = fmt.Sprintf("%s#MakeFinishClientRegistrationResponse", callTraceFileFinishRegisterClient)
+	var callTraceFunc = fmt.Sprintf("%s#MakeFinishClientRegistrationResponseBody", callTraceFileFinishRefreshClientSecret)
 
 	fcrr := entity.FinishClientRegistrationResponse{FinishClientRegistrationShared: shared, ResponseBodyTemplate: entity.ResponseBodyTemplate{RegexNoMatchMsgs: regexNoMatchMsgs, Message: &message, Errs: errors}, FinishClientRegistrationResult: result}
 	if result != nil {

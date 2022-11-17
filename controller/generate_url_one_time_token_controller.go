@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/ilhammhdd/go-toolkit/errorkit"
-	"github.com/ilhammhdd/go-toolkit/regexkit"
 	"github.com/ilhammhdd/go-toolkit/restkit"
 	"github.com/ilhammhdd/go-toolkit/sqlkit"
 	"ilhammhdd.com/oauth2-go-server/adapter"
@@ -26,18 +25,18 @@ type GenerateURLOneTimeToken struct {
 	dbo DBOperator
 }
 
-func (guott GenerateURLOneTimeToken) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var callTraceFunc = fmt.Sprintf("%s#GenerateURLOneTimeToken.SeveHTTP", callTraceFileGenerateURLOneTimeTokenController)
+func (guott *GenerateURLOneTimeToken) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var callTraceFunc = fmt.Sprintf("%s#*GenerateURLOneTimeToken.SeveHTTP", callTraceFileGenerateURLOneTimeTokenController)
 
-	accessToken, ok, statusCode, accessTokenExistsResponseBody := IsAccessTokenExists(&w, r, callTraceFunc)
-	if !ok {
+	authzToken, statusCode, authzTokenExistsResponseBody := IsAuthzTokenExists("Bearer", r.Header.Get("Authorization"), callTraceFunc)
+	if authzToken == "" {
 		w.WriteHeader(statusCode)
-		w.Write(accessTokenExistsResponseBody)
+		w.Write(authzTokenExistsResponseBody)
 		return
 	}
 
 	rules := make(map[string]uint)
-	rules["client_id"] = regexkit.RegexUUIDV4
+	rules["client_id"] = adapter.RegexRandomID
 
 	upv := restkit.URLQueryValidation{RegexRules: rules, Values: r.URL.Query()}
 	if regexErrMsgs, valid := upv.Validate(adapter.DetailedErrDescGen, adapter.RegexErrDescGen); !valid && regexErrMsgs != nil {
@@ -56,11 +55,11 @@ func (guott GenerateURLOneTimeToken) ServeHTTP(w http.ResponseWriter, r *http.Re
 	}
 
 	usecase := usecase.GenerateURLOneTimeToken{
-		ClientID: r.URL.Query().Get("client_id"), AccessToken: accessToken, DBO: guott, ErrDescGen: errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc),
+		ClientID: r.URL.Query().Get("client_id"), AuthzToken: authzToken, DBO: guott, ErrDescGen: errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc),
 	}
 	urlOneTimeToken, detailedErr := usecase.Generate(r.Host, r.URL.Path, r.URL.Query(), r.URL.Fragment)
 	if errorkit.IsNotNilThenLog(detailedErr) {
-		if detailedErr.ErrDescConst == entity.FlowErrUnauthorizedBearerAccessToken {
+		if detailedErr.ErrDescConst == entity.FlowErrUnauthorizedBearerAuthzToken || detailedErr.ErrDescConst == entity.FlowErrBearerAuthzTokenExpired {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write(adapter.MakeGenerateURLOneTimeTokenErrResponse(nil, "", []error{detailedErr}))
 		} else if !detailedErr.Flow {
@@ -85,24 +84,24 @@ func (guott GenerateURLOneTimeToken) ServeHTTP(w http.ResponseWriter, r *http.Re
 	}
 }
 
-func (guott GenerateURLOneTimeToken) SelectClientByClientID(clientID string) (*usecase.SelectClientByClientIDResult, *errorkit.DetailedError) {
-	var callTraceFunc = fmt.Sprintf("%s#GenerateURLOneTimeToken.SelectClientByClientID", callTraceFileGenerateURLOneTimeTokenController)
+func (guott *GenerateURLOneTimeToken) SelectClientsBy(clientID string) (*entity.Client, *errorkit.DetailedError) {
+	var callTraceFunc = fmt.Sprintf("%s#*GenerateURLOneTimeToken.SelectClientsBy", callTraceFileGenerateURLOneTimeTokenController)
 
-	row, err := guott.dbo.QueryRow("SELECT id, client_secret FROM clients WHERE client_id = ?", clientID)
+	row, err := guott.dbo.QueryRow("SELECT id,client_id,client_secret,client_secret_expired_at FROM clients WHERE client_id = ?", clientID)
 	if detailedErr := handleSelectTableErr(err, callTraceFunc, "clients", "client_id"); detailedErr != nil {
 		return nil, detailedErr
 	}
 
-	var client usecase.SelectClientByClientIDResult
-	if err := row.Scan(&client.ID, &client.ClientSecret); err != nil && err != sql.ErrNoRows {
+	var client entity.Client
+	if err := row.Scan(&client.ID, &client.ClientID, &client.ClientSecret, &client.ClientSecretExpiredAt); err != nil && err != sql.ErrNoRows {
 		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBScan, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "clients", "client")
 	}
 
 	return &client, nil
 }
 
-func (guott GenerateURLOneTimeToken) SelectCountURLOneTimeToken(clientsID uint64, url string) (uint32, *errorkit.DetailedError) {
-	var callTraceFunc = fmt.Sprintf("%s#GenerateURLOneTimeToken).SelectCountURLOneTimeToken", callTraceFileGenerateURLOneTimeTokenController)
+func (guott *GenerateURLOneTimeToken) SelectCountURLOneTimeToken(clientsID uint64, url string) (uint32, *errorkit.DetailedError) {
+	var callTraceFunc = fmt.Sprintf("%s#*GenerateURLOneTimeToken).SelectCountURLOneTimeToken", callTraceFileGenerateURLOneTimeTokenController)
 
 	row, err := guott.dbo.QueryRow("SELECT COUNT(uott.id) FROM url_one_time_tokens uott JOIN clients c ON uott.clients_id = c.id WHERE c.id = ? AND uott.url = ?", clientsID, url)
 	if detailedErr := handleSelectTableErr(err, callTraceFunc, "COUNT(url_one_time_tokens.id)", "clients.id", "url_one_time_tokens.id"); detailedErr != nil {
@@ -116,8 +115,8 @@ func (guott GenerateURLOneTimeToken) SelectCountURLOneTimeToken(clientsID uint64
 	return count, nil
 }
 
-func (guott GenerateURLOneTimeToken) InsertURLOneTimeToken(urlOneTimeTokenEntity *entity.URLOneTimeToken) *errorkit.DetailedError {
-	var callTraceFunc = fmt.Sprintf("%s#GenerateURLOneTimeToken.InsertURLOneTimeToken", callTraceFileGenerateURLOneTimeTokenController)
+func (guott *GenerateURLOneTimeToken) InsertURLOneTimeToken(urlOneTimeTokenEntity *entity.URLOneTimeToken) *errorkit.DetailedError {
+	var callTraceFunc = fmt.Sprintf("%s#*GenerateURLOneTimeToken.InsertURLOneTimeToken", callTraceFileGenerateURLOneTimeTokenController)
 
 	querySb := strings.Builder{}
 	querySb.WriteString("INSERT INTO url_one_time_tokens (pk, sk, one_time_token, signature, url, clients_id) VALUES ")
@@ -128,6 +127,6 @@ func (guott GenerateURLOneTimeToken) InsertURLOneTimeToken(urlOneTimeTokenEntity
 	return nil
 }
 
-func NewGenerateURLOneTimeToken(db *sql.DB) GenerateURLOneTimeToken {
-	return GenerateURLOneTimeToken{dbo: &sqlkit.DBOperation{DB: db}}
+func NewGenerateURLOneTimeToken(db *sql.DB) *GenerateURLOneTimeToken {
+	return &GenerateURLOneTimeToken{dbo: &sqlkit.DBOperation{DB: db}}
 }

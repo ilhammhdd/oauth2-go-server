@@ -1,0 +1,29 @@
+{{define "login_tmpl"}}
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset='utf-8'>
+  <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <meta name='csrf-token' content="{{.CsrfToken}}" />
+  <meta name='client-id' content="{{.ClientID}}" />
+  <title>Login User</title>
+</head>
+
+<body>
+  <div class="register-form">
+    <label>Email address or username:</label>
+    <input required="true" id="email-address-or-username" type="text" name="email-address-or-username" />
+  </div>
+  <div class="register-form">
+    <label>Password:</label>
+    <input required="true" id="password" type="password" name="password" />
+  </div>
+  <button id="submit-btn">Submit</button>
+</body>
+
+<script src="/static/login.js"></script>
+
+</html>
+{{end}}

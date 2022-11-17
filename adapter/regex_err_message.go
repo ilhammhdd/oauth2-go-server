@@ -57,10 +57,12 @@ func GenerateRegexErrDesc(regexConst uint, args ...string) string {
 		return generateDescOfArgs("is not a valid response types", args...)
 	case regexkit.RegexDateTimeRFC3339:
 		return generateDescOfArgs("is not a valid RFC3339 date time", args...)
-	case RegexBearerAccessToken:
-		return generateDescOfArgs("is not a valid Bearer access token", args...)
+	case RegexBearerAuthzToken:
+		return generateDescOfArgs("is not a valid Bearer authorization token", args...)
 	case RegexBase64RawURL:
 		return generateDescOfArgs("is not a valid base64 raw URL encoding", args...)
+	case RegexRandomID:
+		return generateDescOfArgs("is not a valid random ID", args...)
 	default:
 		return fmt.Sprintf("no error message for regex const [%d] found", regexConst)
 	}

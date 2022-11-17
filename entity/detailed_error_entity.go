@@ -25,6 +25,7 @@ const (
 	ErrRequiredColumnIsNil
 	ErrEd25519GenerateKeyPair
 	ErrReadRequestBody
+	ErrDBUpdate
 	ErrLastIota
 )
 
@@ -35,8 +36,11 @@ const (
 	FlowErrNotZeroValue
 	FlowErrClientInitiatedRegister
 	FlowErrClientExists
-	FlowErrBearerAccessTokenNotFound
-	FlowErrUnauthorizedBearerAccessToken
 	FlowErrExistsBasedOn
 	FlowErrInvalidCsrfToken
+	FlowErrUnexpiredClientSecret
+	FlowErrBearerAuthzTokenNotFound
+	FlowErrUnauthorizedBearerAuthzToken
+	FlowErrBearerAuthzTokenExpired
+	FlowErrZeroValue
 )

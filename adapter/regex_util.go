@@ -12,8 +12,9 @@ const (
 	RegexTokenEndpointAuthMethod
 	RegexGrantTypes
 	RegexResponseTypes
-	RegexBearerAccessToken
+	RegexBearerAuthzToken
 	RegexBase64RawURL
+	RegexRandomID
 )
 
 var Regex map[uint]string = map[uint]string{
@@ -22,8 +23,9 @@ var Regex map[uint]string = map[uint]string{
 	RegexTokenEndpointAuthMethod: `^(none|client_secret_post|client_secret_basic|client_secret_bearer)$`,
 	RegexGrantTypes:              `^(authorization_code|implicit|password|client_credentials|refresh_token)$`,
 	RegexResponseTypes:           `^(code|token)$`,
-	RegexBearerAccessToken:       `^(Bearer [0-9a-zA-Z_-]{32,})$`,
+	RegexBearerAuthzToken:        `^(Bearer [0-9a-zA-Z_-]{32,})$`,
 	RegexBase64RawURL:            `^([0-9a-zA-Z_-]*)$`,
+	RegexRandomID:                `^[a-zA-Z0-9_\-]{8}$`,
 }
 
 func FlattenMapSliceString(mapErrMessage *map[string][]string) []string {

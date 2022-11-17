@@ -27,7 +27,7 @@ func (icr InitClientRegistration) ServeHTTP(w http.ResponseWriter, r *http.Reque
 
 	rules := make(map[string]uint)
 	rules["register_type"] = adapter.RegexClientRegisterType
-	rules["init_client_id_checksum"] = regexkit.RegexNotEmpty
+	rules["init_client_id"] = regexkit.RegexNotEmpty
 
 	upv := &restkit.URLQueryValidation{RegexRules: rules, Values: r.URL.Query()}
 
@@ -46,29 +46,29 @@ func (icr InitClientRegistration) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	cr, err := usecase.InitiateClientRegistration(r.URL.Query().Get("init_client_id_checksum"), icr, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc))
+	cr, err := usecase.InitiateClientRegistration(r.URL.Query().Get("init_client_id"), icr, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc))
 	if errorkit.IsNotNilThenLog(err) {
 		errs = append(errs, err)
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write(adapter.MakeRegisterInitiateClientResponseBody(nil, errs, cr))
+	w.Write(adapter.MakeInitiateRegisterClientResponseBody(nil, errs, cr))
 }
 
-func (icr InitClientRegistration) InsertIgnoreDBO(cr *entity.ClientRegistration) *errorkit.DetailedError {
+func (icr InitClientRegistration) InsertIgnore(cr *entity.ClientRegistration) *errorkit.DetailedError {
 	var callTraceFunc = fmt.Sprintf("%s#InitClientRegistration.InsertIgnoreDBO", callTraceFileInitRegisterClientController)
 	cr.SetSessionExpiredAt()
-	_, err := icr.dbo.Command(fmt.Sprintf("INSERT IGNORE INTO client_registrations(init_client_id_checksum,basepoint,server_sk,server_pk,session_expired_at) VALUES %s", string(sqlkit.GeneratePlaceHolder(5))), cr.InitClientIDChecksum, cr.Basepoint, cr.ServerSK, cr.ServerPK, cr.SessionExpiredAt)
+	_, err := icr.dbo.Command(fmt.Sprintf("INSERT IGNORE INTO client_registrations(init_client_id,basepoint,server_sk,server_pk,session_expired_at) VALUES %s", string(sqlkit.GeneratePlaceHolder(5))), cr.InitClientID, cr.Basepoint, cr.ServerSK, cr.ServerPK, cr.SessionExpiredAt)
 	if err != nil {
 		return errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBInsert, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "client_registrations")
 	}
 	return nil
 }
 
-func (icr InitClientRegistration) SelectCountBy(initClientIdChecksum string) (int, *errorkit.DetailedError) {
+func (icr InitClientRegistration) SelectCountClientRegistrationsBy(initClientID string) (int, *errorkit.DetailedError) {
 	var callTraceFunc = fmt.Sprintf("%s#InitClientRegistration.SelectCountBy", callTraceFileInitRegisterClientController)
-	row, err := icr.dbo.QueryRow("SELECT COUNT(id) FROM client_registrations WHERE init_client_id_checksum = ?", initClientIdChecksum)
-	if detailedErr := handleSelectTableErr(err, callTraceFunc, "COUNT(client_registrations.id)", "init_client_id_checksum"); detailedErr != nil {
+	row, err := icr.dbo.QueryRow("SELECT COUNT(id) FROM client_registrations WHERE init_client_id = ?", initClientID)
+	if detailedErr := handleSelectTableErr(err, callTraceFunc, "COUNT(client_registrations.id)", "init_client_id"); detailedErr != nil {
 		return -1, detailedErr
 	}
 
@@ -79,11 +79,11 @@ func (icr InitClientRegistration) SelectCountBy(initClientIdChecksum string) (in
 	return counted, nil
 }
 
-func (icr InitClientRegistration) SelectCountClientsBy(initClientIDChecksum string) (int, *errorkit.DetailedError) {
+func (icr InitClientRegistration) SelectCountClientsBy(initClientID string) (int, *errorkit.DetailedError) {
 	var callTraceFunc = fmt.Sprintf("%s#InitClientRegistration.SelectCountClientsBy", callTraceFileInitRegisterClientController)
 
-	row, err := icr.dbo.QueryRow("SELECT COUNT(id) FROM clients WHERE init_client_id_checksum = ?", initClientIDChecksum)
-	if detailedErr := handleSelectTableErr(err, callTraceFunc, "COUNT(clients.id)", "init_client_id_checksum"); detailedErr != nil {
+	row, err := icr.dbo.QueryRow("SELECT COUNT(id) FROM clients WHERE init_client_id = ?", initClientID)
+	if detailedErr := handleSelectTableErr(err, callTraceFunc, "COUNT(clients.id)", "init_client_id"); detailedErr != nil {
 		return -1, detailedErr
 	}
 

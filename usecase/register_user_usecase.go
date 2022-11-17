@@ -19,15 +19,18 @@ type RegisterUserDBOperator interface {
 	SelectUsernameUnqNumBy(username string) (uint16, *errorkit.DetailedError)
 	InsertUser(user *entity.User) (uint64, *errorkit.DetailedError)
 	InsertUsername(username *entity.Username) *errorkit.DetailedError
+	InsertUserPasswordParams(userPasswordParams *entity.UserPasswordParams) *errorkit.DetailedError
 }
 
 type RegisterUser struct {
-	DBO        RegisterUserDBOperator
-	ErrDescGen errorkit.ErrDescGenerator
+	OneTimeToken string
+	Signature    string
+	DBO          RegisterUserDBOperator
+	ErrDescGen   errorkit.ErrDescGenerator
 }
 
 func (ru RegisterUser) VerifyCsrfTokenHmac(csrfToken, csrfTokenHmac string) *errorkit.DetailedError {
-	var callTraceFunc = fmt.Sprintf("%s#*RegisterUser.VerifyCsrfTokenHmac", callTraceFileRegisterUserUsecase)
+	var callTraceFunc = fmt.Sprintf("%s#RegisterUser.VerifyCsrfTokenHmac", callTraceFileRegisterUserUsecase)
 
 	csrfTokenRaw, err := base64.RawURLEncoding.DecodeString(csrfToken)
 	if err != nil {
@@ -38,7 +41,7 @@ func (ru RegisterUser) VerifyCsrfTokenHmac(csrfToken, csrfTokenHmac string) *err
 
 	csrfTokenHmacRaw, err := base64.RawURLEncoding.DecodeString(csrfTokenHmac)
 	if err != nil {
-		return errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrBase64Decoding, ru.ErrDescGen, "csrf-token-hmac")
+		return errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrBase64Decoding, ru.ErrDescGen, "csrf-token-hmac-regsiter")
 	}
 
 	if !hmac.Equal(calculatedCsrfTokenHmac, csrfTokenHmacRaw) {
@@ -48,35 +51,41 @@ func (ru RegisterUser) VerifyCsrfTokenHmac(csrfToken, csrfTokenHmac string) *err
 	return nil
 }
 
-func (ru RegisterUser) CreateAndInsert(email string, username string, plainPassword *string, clientID string) (*entity.UserWithRel, *errorkit.DetailedError) {
-	var callTraceFunc = fmt.Sprintf("%s#*RegisterUser.MakeUser", callTraceFileRegisterUserUsecase)
+func (ru RegisterUser) CreateAndInsert(email string, username string, plainPassword *string, clientID string) *errorkit.DetailedError {
+	var callTraceFunc = fmt.Sprintf("%s#RegisterUser.CreateAndInsert", callTraceFileRegisterUserUsecase)
 
 	countedUser, detailedErr := ru.DBO.SelectCountUserBy(email, username)
 	if detailedErr != nil {
-		return nil, detailedErr
+		return detailedErr
 	}
 	if countedUser > 0 {
-		return nil, errorkit.NewDetailedError(true, callTraceFunc, nil, entity.FlowErrExistsBasedOn, ru.ErrDescGen, "email", "username")
+		return errorkit.NewDetailedError(true, callTraceFunc, nil, entity.FlowErrExistsBasedOn, ru.ErrDescGen, "email", "username")
 	}
 
 	clientsID, detailedErr := ru.DBO.SelectClientsIDBy(clientID)
 	if detailedErr != nil {
-		return nil, detailedErr
+		return detailedErr
 	}
 
-	user, detailedErr := entity.NewUser(email, plainPassword, clientsID, ru.ErrDescGen)
+	user, userPasswordParams, detailedErr := entity.NewUserWithPasswordParams(email, plainPassword, clientsID, ru.ErrDescGen)
 	if detailedErr != nil {
-		return nil, detailedErr
+		return detailedErr
 	}
 
 	usersID, detailedErr := ru.DBO.InsertUser(user)
 	if detailedErr != nil {
-		return nil, detailedErr
+		return detailedErr
+	}
+
+	userPasswordParams.UsersID = usersID
+	detailedErr = ru.DBO.InsertUserPasswordParams(userPasswordParams)
+	if detailedErr != nil {
+		return detailedErr
 	}
 
 	usernameUnqNum, detailedErr := ru.DBO.SelectUsernameUnqNumBy(username)
 	if detailedErr != nil && detailedErr != sql.ErrNoRows {
-		return nil, detailedErr
+		return detailedErr
 	}
 
 	usernameEntity := entity.Username{Username: username, UsersID: usersID}
@@ -88,8 +97,8 @@ func (ru RegisterUser) CreateAndInsert(email string, username string, plainPassw
 
 	detailedErr = ru.DBO.InsertUsername(&usernameEntity)
 	if detailedErr != nil {
-		return nil, detailedErr
+		return detailedErr
 	}
 
-	return &entity.UserWithRel{User: user, Username: &usernameEntity}, nil
+	return nil
 }

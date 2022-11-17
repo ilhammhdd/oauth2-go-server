@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/ilhammhdd/go-toolkit/errorkit"
 	"github.com/ilhammhdd/go-toolkit/regexkit"
@@ -40,6 +42,7 @@ func init() {
 	}
 	regexkit.CompileAllRegex(adapter.Regex)
 	fmt.Printf("\n%v", entity.EnvVars)
+	rand.Seed(time.Now().UTC().UnixNano())
 }
 
 func main() {
@@ -64,50 +67,59 @@ func main() {
 		GetHandler:  controller.NewInitiateClientRegistration(external.MariaDB),
 		PostHandler: controller.NewFinishClientRegistration(external.MariaDB),
 	})
-	http.Handle("/init/register", &restkit.MethodRouting{
-		GetHandler: controller.NewGenerateURLOneTimeToken(external.MariaDB),
-		MethodsCORSHeaderPolicy: &restkit.MethodsCORSHeaderPolicy{
-			http.MethodGet: restkit.CORSHeaderPolicy{
-				AccessControlAllowOrigin:      "http://localhost:7575",
-				AccessControlAllowCredentials: true,
-				AccessControlAllowMethods:     restkit.NewCaseSensitiveStrings(restkit.UpperCase, http.MethodGet, http.MethodOptions, http.MethodPost),
-				AccessControlAllowHeaders:     restkit.NewCaseSensitiveStrings(restkit.LowerCase, "Authorization", "X-PINGOTHER"),
-			},
-		},
-	})
 	registerCORSPolicy := restkit.CORSHeaderPolicy{
 		AccessControlAllowOrigin:      "http://localhost:7575",
 		AccessControlAllowCredentials: true,
 		AccessControlAllowMethods:     restkit.NewCaseSensitiveStrings(restkit.UpperCase, http.MethodGet, http.MethodOptions, http.MethodPost),
-		AccessControlAllowHeaders:     restkit.NewCaseSensitiveStrings(restkit.LowerCase, "Authorization"),
+		AccessControlAllowHeaders:     restkit.NewCaseSensitiveStrings(restkit.LowerCase, "Authorization", "X-PINGOTHER"),
 	}
+	// TODO: strange behavior! When the client just refreshed the client secret and trying to hit this endpoint's GET, the browser doesn't send the preflight request, but the subsequent requests does
+	http.Handle("/init/register", &restkit.MethodRouting{
+		GetHandler: controller.NewGenerateURLOneTimeToken(external.MariaDB),
+		MethodsCORSHeaderPolicy: &restkit.MethodsCORSHeaderPolicy{
+			http.MethodGet: registerCORSPolicy,
+		},
+	})
 	http.Handle("/register", &restkit.MethodRouting{
 		GetHandler:  controller.NewRenderRegisterUser(external.MariaDB, controller.HTMLTemplateExecutorFunc(external.ExecuteHTMLTemplate)),
 		PostHandler: controller.NewRegisterUser(external.MariaDB, controller.HTMLTemplateExecutorFunc(external.ExecuteHTMLTemplate)),
-		/* PostHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			var callTraceFunc = "POST /register handler"
-			log.Printf("csrf-token in header: %s", r.Header.Get("csrf-token"))
-
-			cookieKey := "csrf-token-hmac"
-			csrfTokenHmac, err := r.Cookie(cookieKey)
-			if err != nil {
-				errorkit.IsNotNilThenLog(errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrRetrieveCookie, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), cookieKey))
-			}
-			log.Printf("csrfTokenHmac: %s", csrfTokenHmac.Value)
-
-			requestBodyRaw := make([]byte, r.ContentLength)
-			r.Body.Read(requestBodyRaw)
-			defer r.Body.Close()
-			var requestBody map[string]any
-			err = json.Unmarshal(requestBodyRaw, &requestBody)
-			if err != nil {
-				errorkit.IsNotNilThenLog(errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrJsonMarshal, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "register request body"))
-			}
-			log.Printf("bodyData: %v", requestBody)
-		}), */
 		MethodsCORSHeaderPolicy: &restkit.MethodsCORSHeaderPolicy{
 			http.MethodGet:  registerCORSPolicy,
 			http.MethodPost: registerCORSPolicy,
+		},
+	})
+	loginCORSPolicy := restkit.CORSHeaderPolicy{
+		AccessControlAllowOrigin:      "http://localhost:7575",
+		AccessControlAllowCredentials: true,
+		AccessControlAllowMethods:     restkit.NewCaseSensitiveStrings(restkit.UpperCase, http.MethodGet, http.MethodOptions, http.MethodPost),
+		AccessControlAllowHeaders:     restkit.NewCaseSensitiveStrings(restkit.LowerCase, "Authorization", "X-PINGOTHER"),
+	}
+	http.Handle("/init/login", &restkit.MethodRouting{
+		GetHandler: controller.NewGenerateURLOneTimeToken(external.MariaDB),
+		MethodsCORSHeaderPolicy: &restkit.MethodsCORSHeaderPolicy{
+			http.MethodGet: loginCORSPolicy,
+		},
+	})
+	// TODO: finish this login feature
+	http.Handle("/login", &restkit.MethodRouting{
+		GetHandler: controller.NewRenderLoginUser(external.MariaDB, controller.HTMLTemplateExecutorFunc(external.ExecuteHTMLTemplate)),
+		MethodsCORSHeaderPolicy: &restkit.MethodsCORSHeaderPolicy{
+			http.MethodGet:  loginCORSPolicy,
+			http.MethodPost: loginCORSPolicy,
+		},
+	})
+	refreshClientSecretCORS := restkit.CORSHeaderPolicy{
+		AccessControlAllowOrigin:      "http://localhost:7575",
+		AccessControlAllowCredentials: true,
+		AccessControlAllowMethods:     restkit.NewCaseSensitiveStrings(restkit.UpperCase, http.MethodGet, http.MethodOptions, http.MethodPost),
+		AccessControlAllowHeaders:     restkit.NewCaseSensitiveStrings(restkit.LowerCase, "Authorization", "X-PINGOTHER"),
+	}
+	http.Handle("/refresh-client-secret", &restkit.MethodRouting{
+		GetHandler:  controller.NewInitRefreshClientSecret(external.MariaDB),
+		PostHandler: controller.NewFinishRefreshClientSecret(external.MariaDB),
+		MethodsCORSHeaderPolicy: &restkit.MethodsCORSHeaderPolicy{
+			http.MethodGet:  refreshClientSecretCORS,
+			http.MethodPost: refreshClientSecretCORS,
 		},
 	})
 

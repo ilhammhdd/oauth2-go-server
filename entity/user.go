@@ -21,18 +21,26 @@ type User struct {
 	ClientsID     uint64     `json:"clients_id,omitempty"`
 }
 
-func NewUser(email string, plainPassword *string, clientsID uint64, errDescGen errorkit.ErrDescGenerator) (*User, *errorkit.DetailedError) {
-	var callTraceFunc = fmt.Sprintf("%s#NewUser", callTraceFileUser)
+func (u *User) VerifyPassword(inPassword string, passwordParams UserPasswordParams) (bool, *errorkit.DetailedError) {
+	return false, nil
+}
+
+func NewUserWithPasswordParams(email string, plainPassword *string, clientsID uint64, errDescGen errorkit.ErrDescGenerator) (*User, *UserPasswordParams, *errorkit.DetailedError) {
+	var callTraceFunc = fmt.Sprintf("%s#NewUserWithPasswordParams", callTraceFileUser)
 	randSalt, err := GenerateCryptoRand(32)
 	if err != nil {
-		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, ErrGenerateCryptoRand, errDescGen, "users")
+		return nil, nil, errorkit.NewDetailedError(false, callTraceFunc, err, ErrGenerateCryptoRand, errDescGen, "users")
 	}
-	cipherPassword := argon2.Key([]byte(*plainPassword), randSalt, 6, 96*1024, 6, 32)
+	var time uint32 = 6
+	var memory uint32 = 9 * 1024
+	var threads uint8 = 6
+	var keyLen uint32 = 32
+	var cipherPassword = argon2.Key([]byte(*plainPassword), randSalt, time, memory, threads, keyLen)
 	defer func() { *plainPassword = "" }()
 
 	return &User{
 		Email: email, Password: base64.RawURLEncoding.EncodeToString(cipherPassword), ClientsID: clientsID,
-	}, nil
+	}, &UserPasswordParams{RandSalt: base64.RawURLEncoding.EncodeToString(randSalt), Time: time, Memory: memory, Threads: threads, KeyLen: keyLen}, nil
 }
 
 type Username struct {
@@ -46,6 +54,7 @@ type Username struct {
 }
 
 type UserWithRel struct {
-	User     *User     `json:"user,omitempty"`
-	Username *Username `json:"username,omitempty"`
+	User               *User               `json:"user,omitempty"`
+	Username           *Username           `json:"username,omitempty"`
+	UserPasswordParams *UserPasswordParams `json:"user_password_params,omitempty"`
 }
