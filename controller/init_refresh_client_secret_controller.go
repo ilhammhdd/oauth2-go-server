@@ -52,7 +52,7 @@ func (ircs InitRefreshClientSecret) ServeHTTP(w http.ResponseWriter, r *http.Req
 		} else {
 			w.WriteHeader(http.StatusBadGateway)
 		}
-		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", detailedErr))
 		return
 	}
 

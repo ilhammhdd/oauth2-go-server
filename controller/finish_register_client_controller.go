@@ -24,7 +24,7 @@ type FinishClientRegistration struct {
 }
 
 func (fcr *FinishClientRegistration) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// var callTraceFunc = fmt.Sprintf("%s#*FinishClientRegistration.ServeHTTP", callTraceFileFinishRegisterClientController)
+	var callTraceFunc = fmt.Sprintf("%s#*FinishClientRegistration.ServeHTTP", callTraceFileFinishRegisterClientController)
 	w.Header().Set("Content-Type", "application/json")
 
 	authzToken := fcr.getAuthzToken(r.Header.Get("Authorization"))
@@ -41,12 +41,17 @@ func (fcr *FinishClientRegistration) ServeHTTP(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	result, detailedErr := usecase.FinishClientRegistration(fcrr, authzToken, fcr, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc))
+	scopeWithRels, detailedErrs := adapter.ParseScopeWithRel(fcrr.Scope, callTraceFunc)
+	if len(detailedErrs) > 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", detailedErrs...))
+		return
+	}
+	result, detailedErr := usecase.FinishClientRegistration(fcrr, authzToken, scopeWithRels, fcr, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc))
 
 	if errorkit.IsNotNilThenLog(detailedErr) {
 		if !detailedErr.Flow {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write(nil)
 		} else if detailedErr.ErrDescConst == entity.FlowErrBearerAuthzTokenNotFound || detailedErr.ErrDescConst == entity.FlowErrUnauthorizedBearerAuthzToken {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write(adapter.MakeFinishClientRegistrationResponseBody(nil, "", []error{detailedErr}, nil, nil))
@@ -216,29 +221,70 @@ func (fcr *FinishClientRegistration) SelectClientRegistrationsBy(initClientID st
 	return &celientRegistration, nil
 }
 
-func (fcr *FinishClientRegistration) InsertClientWithRelations(clientsWithRel *entity.ClientWithRelations) *errorkit.DetailedError {
-	var callTraceFunc = fmt.Sprintf("%s#*FinishClientRegistration.InsertClientWithRelations", callTraceFileFinishRegisterClientController)
+type insertScopeWithRel struct {
+	scope       string
+	parentScope *uint64
+}
 
-	stmtInsertClient := fmt.Sprintf("INSERT INTO clients (token_endpoint_auth_method, grant_types, response_types, client_name, client_uri, logo_uri, scope, tos_uri, policy_uri, software_id, software_version, init_client_id, client_id, client_id_issued_at, client_secret, client_secret_expired_at) VALUES %s", sqlkit.GeneratePlaceHolder(16))
-	clientInsertResult, err := fcr.dbo.Command(stmtInsertClient, clientsWithRel.TokenEndpointAuthMethod, clientsWithRel.GrantTypes, clientsWithRel.ResponseTypes, clientsWithRel.ClientName, clientsWithRel.ClientURI, clientsWithRel.LogoURI, clientsWithRel.Scope, clientsWithRel.TosURI, clientsWithRel.PolicyURI, clientsWithRel.SoftwareID, clientsWithRel.SoftwareVersion, clientsWithRel.InitClientID, clientsWithRel.ClientID, clientsWithRel.ClientIDIssuedAt, clientsWithRel.ClientSecret, clientsWithRel.ClientSecretExpiredAt)
+func (fcr *FinishClientRegistration) InsertClientWithRel(clientsWithRel *entity.ClientWithRel) *errorkit.DetailedError {
+	var callTraceFunc = fmt.Sprintf("%s#*FinishClientRegistration.InsertClientWithRel", callTraceFileFinishRegisterClientController)
+
+	stmtInsertClient := fmt.Sprintf("INSERT INTO clients (token_endpoint_auth_method, grant_types, response_types, client_name, client_uri, logo_uri, tos_uri, policy_uri, software_id, software_version, init_client_id, client_id, client_id_issued_at, client_secret, client_secret_expired_at) VALUES %s", sqlkit.GeneratePlaceHolder(15))
+	clientInsertResult, err := fcr.dbo.Command(stmtInsertClient, clientsWithRel.TokenEndpointAuthMethod, clientsWithRel.GrantTypes, clientsWithRel.ResponseTypes, clientsWithRel.ClientName, clientsWithRel.ClientURI, clientsWithRel.LogoURI, clientsWithRel.TosURI, clientsWithRel.PolicyURI, clientsWithRel.SoftwareID, clientsWithRel.SoftwareVersion, clientsWithRel.InitClientID, clientsWithRel.ClientID, clientsWithRel.ClientIDIssuedAt, clientsWithRel.ClientSecret, clientsWithRel.ClientSecretExpiredAt)
 	if err != nil {
 		return errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBInsert, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "clients")
 	}
 	clientsID, err := clientInsertResult.LastInsertId()
+	clientsIDUint64 := uint64(clientsID)
 	if err != nil {
 		return errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBLastInsertId, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "clients")
 	}
 
 	stmtInsertRedirectURIs := fmt.Sprintf("INSERT INTO redirect_uris (uri, clients_id) VALUES %s", sqlkit.GenerateNPlaceHolder(uint16(len(clientsWithRel.RedirectURIs)), 2))
-	redirecURIs := entity.FlattenRedirectURIsNonTemplateColumnsValue(&clientsWithRel.RedirectURIs, uint64(clientsID))
+	redirecURIs := entity.FlattenRedirectURIsNonTemplateColumnsValue(clientsWithRel.RedirectURIs, uint64(clientsID))
 	if _, err = fcr.dbo.Command(stmtInsertRedirectURIs, redirecURIs...); err != nil {
 		return errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBInsert, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "redirect_uris")
 	}
 
 	stmtInsertContacts := fmt.Sprintf("INSERT INTO contacts (contact, clients_id) VALUES %s", sqlkit.GenerateNPlaceHolder(uint16(len(clientsWithRel.Contacts)), 2))
-	contacts := entity.FlattenContactsNonTemplateColumnsValue(&clientsWithRel.Contacts, uint64(clientsID))
+	contacts := entity.FlattenContactsNonTemplateColumnsValue(clientsWithRel.Contacts, uint64(clientsID))
 	if _, err = fcr.dbo.Command(stmtInsertContacts, contacts...); err != nil {
 		return errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBInsert, errorkit.ErrDescGeneratorFunc(adapter.GenerateDetailedErrDesc), "contacts")
+	}
+
+	var parentChildrenIDs map[string][]uint64 = make(map[string][]uint64)
+	for _, v := range clientsWithRel.ScopesWithRel {
+		result, err := fcr.dbo.Command("INSERT INTO scopes (scope,permission,clients_id) VALUES (?,?,?)", v.Scope.Scope, v.Scope.Permission, clientsID)
+		if err != nil {
+			return errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBInsert, adapter.DetailedErrDescGen)
+		}
+
+		lastInsertedID, err := result.LastInsertId()
+		if err != nil {
+			return errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBLastInsertId, adapter.DetailedErrDescGen)
+		}
+		scopesID := uint64(lastInsertedID)
+		v.Scope.ID = &scopesID
+		v.Scope.ClientsID = &clientsIDUint64
+		if v.ParentScope != nil {
+			parentChildrenIDs[v.ParentScope.Scope] = append(parentChildrenIDs[v.ParentScope.Scope], scopesID)
+		}
+	}
+
+	var txCmdStmtArgs []*sqlkit.TxCmdStmtArgs
+	updateParentScopesIDStmt := "UPDATE scopes SET parent_scopes_id=? WHERE id="
+	for _, v := range clientsWithRel.ScopesWithRel {
+		if _, ok := parentChildrenIDs[v.Scope.Scope]; ok {
+			for _, id := range parentChildrenIDs[v.Scope.Scope] {
+				txCmdStmtArgs = append(txCmdStmtArgs, &sqlkit.TxCmdStmtArgs{Statement: updateParentScopesIDStmt, Args: []interface{}{v.Scope.ID, id}})
+			}
+		}
+	}
+	if len(txCmdStmtArgs) > 0 {
+		_, err = fcr.dbo.TxCommand(txCmdStmtArgs)
+		if err != nil {
+			return errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrDBTxCommand, adapter.DetailedErrDescGen)
+		}
 	}
 
 	return nil

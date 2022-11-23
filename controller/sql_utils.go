@@ -4,11 +4,13 @@ import (
 	"database/sql"
 
 	"github.com/ilhammhdd/go-toolkit/errorkit"
+	"github.com/ilhammhdd/go-toolkit/sqlkit"
 	"ilhammhdd.com/oauth2-go-server/adapter"
 	"ilhammhdd.com/oauth2-go-server/entity"
 )
 
 type DBOperator interface {
+	TxCommand(txCmdStmtArgs []*sqlkit.TxCmdStmtArgs) ([]*sql.Result, error)
 	Command(stmt string, args ...interface{}) (sql.Result, error)
 	Query(stmt string, args ...interface{}) (*sql.Rows, error)
 	QueryRow(stmt string, args ...interface{}) (*sql.Row, error)

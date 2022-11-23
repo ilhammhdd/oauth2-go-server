@@ -55,6 +55,10 @@ func GenerateRegexErrDesc(regexConst uint, args ...string) string {
 		return generateDescOfArgs("is not a valid grant types", args...)
 	case RegexResponseTypes:
 		return generateDescOfArgs("is not a valid response types", args...)
+	case RegexResponseTypeCode:
+		return generateDescOfArgs("is not the desired response types", args...)
+	case RegexResponseTypeToken:
+		return generateDescOfArgs("is not the desired response types", args...)
 	case regexkit.RegexDateTimeRFC3339:
 		return generateDescOfArgs("is not a valid RFC3339 date time", args...)
 	case RegexBearerAuthzToken:

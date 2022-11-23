@@ -33,10 +33,10 @@ func (ru RegisterUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	registerUserRequest, detailedErr := adapter.ReadRequestBody[entity.RegisterUserRequest](r, "register user")
+	registerUserRequest, detailedErr := adapter.ReadRequestBodyJSON[entity.RegisterUserRequest](r, "register user")
 	if errorkit.IsNotNilThenLog(detailedErr) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", detailedErr))
 		return
 	}
 
@@ -65,7 +65,7 @@ func (ru RegisterUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	csrfTokenHmac, err := r.Cookie(cookieKey)
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrRetrieveCookie, adapter.DetailedErrDescGen, "csrf-token-hmac-register")}))
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrRetrieveCookie, adapter.DetailedErrDescGen, "csrf-token-hmac-register")))
 		return
 	}
 
@@ -76,7 +76,7 @@ func (ru RegisterUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
-		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", detailedErr))
 		return
 	}
 
@@ -85,9 +85,9 @@ func (ru RegisterUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if detailedErr.Flow {
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
-			w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
+			w.Write(adapter.MakeResponseTmplErrResponse(nil, "", detailedErr))
 		}
-		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", detailedErr))
 		return
 	}
 

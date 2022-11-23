@@ -1,10 +1,13 @@
 package entity
 
+import "github.com/ilhammhdd/go-toolkit/errorkit"
+
 type ResponseBodyTemplate struct {
-	RegexNoMatchMsgs     *map[string][]string `json:"regex_no_match,omitempty"`
-	Message              *string              `json:"message,omitempty"`
-	Errs                 []error              `json:"errors,omitempty"`
-	FlatRegexNoMatchMsgs []string             `json:"flatten_regex_no_match,omitempty"`
+	RegexNoMatchMsgs     *map[string][]string      `json:"regex_no_match,omitempty"`
+	Message              *string                   `json:"message,omitempty"`
+	Errs                 []error                   `json:"errors,omitempty"`
+	DetailedErrs         []*errorkit.DetailedError `json:"detailed_errors,omitempty"`
+	FlatRegexNoMatchMsgs []string                  `json:"flatten_regex_no_match,omitempty"`
 }
 
 func (rbt *ResponseBodyTemplate) FlattenErrorPageDataRegexNoMatchMsgs(errorPageDataID uint64) (uint32, []interface{}) {

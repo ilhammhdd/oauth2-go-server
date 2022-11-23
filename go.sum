@@ -2,8 +2,8 @@ github.com/go-sql-driver/mysql v1.6.0 h1:BCTh4TKNUYmOmMUcQ3IipzF5prigylS7XXjEkfC
 github.com/go-sql-driver/mysql v1.6.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
 github.com/google/uuid v1.3.0 h1:t6JiXgmwXMjEs8VusXIJk2BXHsn+wx8BZdTaoZ5fu7I=
 github.com/google/uuid v1.3.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/ilhammhdd/go-toolkit v0.4.6 h1:TPjVTOhh7ZrgLTCpnNvRjFgmas/MEj6v/xstYTLYuOk=
-github.com/ilhammhdd/go-toolkit v0.4.6/go.mod h1:dMb1nMjR7NP3cc0z2qvGiTvAYWtBGs0WCPGMkCVDdEE=
+github.com/ilhammhdd/go-toolkit v0.4.8 h1:lT2dp1vbZqS+JKuiRYaAAkW6jG8B39CKfUKMv6EqRBI=
+github.com/ilhammhdd/go-toolkit v0.4.8/go.mod h1:jhMJe1OgG1i8vA2pnuHkTMn3DLNmb3bqIj3hPg5k7HQ=
 golang.org/x/crypto v0.0.0-20221012134737-56aed061732a h1:NmSIgad6KjE6VvHciPZuNRTKxGhlPfD6OA87W/PLkqg=
 golang.org/x/crypto v0.0.0-20221012134737-56aed061732a/go.mod h1:IxCIyHEi3zRg3s0A5j5BB6A9Jmi73HwBIUl50j+osU4=
 golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1 h1:SrN+KX8Art/Sf4HNj6Zcz06G7VEz+7w9tdXTPOZ7+l4=

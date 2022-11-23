@@ -45,14 +45,14 @@ func (frcs FinishRefreshClientSecret) ServeHTTP(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	reqBody, detailedErr := adapter.ReadRequestBody[entity.FinishRefreshClientSecretRequest](r, "refresh client secret")
+	reqBody, detailedErr := adapter.ReadRequestBodyJSON[entity.FinishRefreshClientSecretRequest](r, "refresh client secret")
 	if detailedErr != nil {
 		if detailedErr.Flow {
 			w.WriteHeader(http.StatusBadRequest)
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
-		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", detailedErr))
 		return
 	}
 	errMsgs, ok := frcs.validateReqBody(reqBody)
@@ -70,7 +70,7 @@ func (frcs FinishRefreshClientSecret) ServeHTTP(w http.ResponseWriter, r *http.R
 		} else {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
-		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", detailedErr))
 		return
 	}
 

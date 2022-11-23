@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/ilhammhdd/go-toolkit/errorkit"
+	"github.com/ilhammhdd/go-toolkit/sqlkit"
 	"golang.org/x/crypto/blake2b"
 	"ilhammhdd.com/oauth2-go-server/entity"
-	"ilhammhdd.com/oauth2-go-server/vendor/github.com/ilhammhdd/go-toolkit/sqlkit"
 )
 
 type TryJsonTime struct {

@@ -16,11 +16,11 @@ const callTraceFileFinishRegisterClientUsecase = "/usecase/finish_register_clien
 
 type FinishClientRegistrationDBOperator interface {
 	SelectClientRegistrationsBy(initClientID string) (*entity.ClientRegistration, *errorkit.DetailedError)
-	InsertClientWithRelations(*entity.ClientWithRelations) *errorkit.DetailedError
+	InsertClientWithRel(*entity.ClientWithRel) *errorkit.DetailedError
 	DeleteClientRegistration(initClientID string) *errorkit.DetailedError
 }
 
-func FinishClientRegistration(fcrr *entity.FinishClientRegistrationRequest, authzToken string, dbo FinishClientRegistrationDBOperator, errDescGen errorkit.ErrDescGenerator) (*entity.FinishClientRegistrationResult, *errorkit.DetailedError) {
+func FinishClientRegistration(fcrr *entity.FinishClientRegistrationRequest, authzToken string, scopeWithRels []*entity.ScopeWithRel, dbo FinishClientRegistrationDBOperator, errDescGen errorkit.ErrDescGenerator) (*entity.FinishClientRegistrationResult, *errorkit.DetailedError) {
 	var callTraceFunc = fmt.Sprintf("%s#FinishClientRegistration", callTraceFileFinishRegisterClientUsecase)
 
 	defer dbo.DeleteClientRegistration(fcrr.InitClientID)
@@ -40,20 +40,20 @@ func FinishClientRegistration(fcrr *entity.FinishClientRegistrationRequest, auth
 		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrBase64Decoding, errDescGen, "basepoint")
 	}
 
-	icrServerPk, err := base64.RawURLEncoding.DecodeString(cr.ServerPK)
+	serverPK, err := base64.RawURLEncoding.DecodeString(fcrr.ServerPK)
 	if err != nil {
 		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrBase64Decoding, errDescGen, "stored server_pk")
 	}
-	icrBasepoint, err := base64.RawURLEncoding.DecodeString(cr.Basepoint)
+	basepoint, err := base64.RawURLEncoding.DecodeString(fcrr.Basepoint)
 	if err != nil {
 		return nil, errorkit.NewDetailedError(false, callTraceFunc, err, entity.ErrBase64Decoding, errDescGen, "stored basepoint")
 	}
 
 	var errsDataNotMatched []string
-	if !bytes.Equal(icrServerPk, serverPkStored) {
+	if !bytes.Equal(serverPK, serverPkStored) {
 		errsDataNotMatched = append(errsDataNotMatched, "server_pk")
 	}
-	if !bytes.Equal(icrBasepoint, basepointStored) {
+	if !bytes.Equal(basepoint, basepointStored) {
 		errsDataNotMatched = append(errsDataNotMatched, "basepoint")
 	}
 	if !fcrr.SessionExpiredAt.Equal(cr.SessionExpiredAt) {
@@ -86,16 +86,16 @@ func FinishClientRegistration(fcrr *entity.FinishClientRegistrationRequest, auth
 		return nil, detailedErr
 	}
 
-	var redirectURIs []entity.RedirectUri = make([]entity.RedirectUri, len(fcrr.RedirectURIs))
+	var redirectURIs []*entity.RedirectUri = make([]*entity.RedirectUri, len(fcrr.RedirectURIs))
 	for idx := range fcrr.RedirectURIs {
-		redirectURIs[idx] = entity.RedirectUri{URI: fcrr.RedirectURIs[idx]}
+		redirectURIs[idx] = &entity.RedirectUri{URI: fcrr.RedirectURIs[idx]}
 	}
-	var contacts []entity.Contact = make([]entity.Contact, len(fcrr.Contacts))
+	var contacts []*entity.Contact = make([]*entity.Contact, len(fcrr.Contacts))
 	for idx := range fcrr.Contacts {
-		contacts[idx] = entity.Contact{Contact: fcrr.Contacts[idx]}
+		contacts[idx] = &entity.Contact{Contact: fcrr.Contacts[idx]}
 	}
 
-	if insertErr := dbo.InsertClientWithRelations(&entity.ClientWithRelations{
+	if insertErr := dbo.InsertClientWithRel(&entity.ClientWithRel{
 		Client: entity.Client{
 			GrantTypes:              []byte(strings.Join(fcrr.GrantTypes, ",")),
 			ResponseTypes:           []byte(strings.Join(fcrr.ResponseTypes, ",")),
@@ -103,7 +103,6 @@ func FinishClientRegistration(fcrr *entity.FinishClientRegistrationRequest, auth
 			ClientName:              fcrr.ClientName,
 			ClientURI:               fcrr.ClientURI,
 			LogoURI:                 fcrr.LogoURI,
-			Scope:                   fcrr.Scope,
 			TosURI:                  fcrr.TosURI,
 			PolicyURI:               fcrr.PolicyURI,
 			SoftwareID:              fcrr.SoftwareID,
@@ -114,8 +113,9 @@ func FinishClientRegistration(fcrr *entity.FinishClientRegistrationRequest, auth
 			ClientSecret:            base64.RawURLEncoding.EncodeToString(clientSecretRaw),
 			ClientSecretExpiredAt:   clientSecretExpiredAt,
 		},
-		RedirectURIs: redirectURIs,
-		Contacts:     contacts,
+		RedirectURIs:  redirectURIs,
+		Contacts:      contacts,
+		ScopesWithRel: scopeWithRels,
 	}); insertErr != nil {
 		return nil, insertErr
 	}

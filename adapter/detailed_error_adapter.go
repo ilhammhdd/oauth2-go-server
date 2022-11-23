@@ -194,6 +194,14 @@ func GenerateDetailedErrDesc(errDescConst uint, args ...string) string {
 		} else {
 			return "error updating to table"
 		}
+	case entity.FlowErrInvalidScope:
+		if len(args) == 1 {
+			return fmt.Sprintf("invalid scope %s", args[0])
+		} else {
+			return "invalid scopes"
+		}
+	case entity.ErrDBTxCommand:
+		return "error while doing DB transaction command"
 	default:
 		return "error description constant undefined"
 	}

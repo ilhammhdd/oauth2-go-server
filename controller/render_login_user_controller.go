@@ -38,7 +38,7 @@ func (rlu RenderLoginUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	verified, detailedErr := theUsecase.VerifySignature(r.URL.Query().Get("client_id"), r.URL.Query().Get("one_time_token"), r.URL.Query().Get("signature"))
 	if errorkit.IsNotNilThenLog(detailedErr) {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", detailedErr))
 		return
 	}
 
@@ -51,7 +51,7 @@ func (rlu RenderLoginUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	csrfToken, csrfTokenHmac, detailedErr := usecase.GenerateCsrfTokenAndHmac(adapter.DetailedErrDescGen)
 	if errorkit.IsNotNilThenLog(detailedErr) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", detailedErr))
 		return
 	}
 

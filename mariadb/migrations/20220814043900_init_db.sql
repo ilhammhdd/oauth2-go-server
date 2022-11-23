@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS `client_registrations`(
   `session_expired_at` DATETIME(6) NOT NULL
 );
 
+-- TODO: this 'client` table is mix of what is supposed to be separate 'client' and 'client_instance', that means separating client registration which is supposed to be done manually because there is some validation required, and client_instance registration which is done dynamically only after the client has been registered
 CREATE TABLE IF NOT EXISTS `clients`(
   `id` BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
   `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -21,7 +22,6 @@ CREATE TABLE IF NOT EXISTS `clients`(
   `client_name` TEXT NOT NULL,
   `client_uri` TEXT NOT NULL,
   `logo_uri` TEXT NOT NULL,
-  `scope` TEXT NOT NULL,
   `tos_uri` TEXT NOT NULL,
   `policy_uri` TEXT NOT NULL,
   `software_id` TEXT NOT NULL,

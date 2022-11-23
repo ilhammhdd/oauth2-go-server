@@ -26,6 +26,7 @@ const (
 	ErrEd25519GenerateKeyPair
 	ErrReadRequestBody
 	ErrDBUpdate
+	ErrDBTxCommand
 	ErrLastIota
 )
 
@@ -43,4 +44,5 @@ const (
 	FlowErrUnauthorizedBearerAuthzToken
 	FlowErrBearerAuthzTokenExpired
 	FlowErrZeroValue
+	FlowErrInvalidScope
 )

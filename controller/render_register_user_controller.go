@@ -43,7 +43,7 @@ func (rru *RenderRegisterUser) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	verified, detailedErr := urlOneTimeTokenUsecase.VerifySignature(r.URL.Query().Get("client_id"), r.URL.Query().Get("one_time_token"), r.URL.Query().Get("signature"))
 	if errorkit.IsNotNilThenLog(detailedErr) {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", detailedErr))
 		return
 	}
 	if !verified {
@@ -55,7 +55,7 @@ func (rru *RenderRegisterUser) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	csrfToken, csrfTokenHmac, detailedErr := usecase.GenerateCsrfTokenAndHmac(adapter.DetailedErrDescGen)
 	if errorkit.IsNotNilThenLog(detailedErr) && detailedErr.Flow {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", []error{detailedErr}))
+		w.Write(adapter.MakeResponseTmplErrResponse(nil, "", detailedErr))
 		return
 	}
 
